@@ -826,9 +826,9 @@
   window.closeImageViewer = closeImageViewer;
 
   // 关闭按钮
-  if ($('#imgViewerClose')) $('#imgViewerClose').onclick = closeImageViewer;
+  $('#imgViewerClose').onclick = closeImageViewer;
   // 点击背景关闭
-  if ($('#imgViewer')) $('#imgViewer').onclick = (e) => {
+  $('#imgViewer').onclick = (e) => {
     if (e.target === $('#imgViewer')) closeImageViewer();
   };
 
@@ -1433,68 +1433,67 @@
     $('#statusTime').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  // ========== 启动（纯同步，先本地渲染再后台同步） ==========
-  function init() {
-    if (window.qiaodayInited) return; // 防止重复初始化
+  async function init() {
     window.qiaodayInited = true;
+    // 强制兜底：5 秒后如果还在加载中，直接用默认数据渲染，避免任何卡住
+    const forceRenderTimer = setTimeout(function () {
+      try {
+        if ($('#loadingHint')) {
+          if (!state || !state.story) state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+          switchTab('story');
+        }
+      } catch (e) {}
+    }, 5000);
 
-    // 同步：加载本地数据 + 渲染（100ms 内完成，绝不卡）
-    ensureState();
-    ensureDefaults();
-    updateClock();
-    setInterval(updateClock, 30000);
-    switchTab('story');
-
-    // 异步：后台静默连服务器（不阻塞页面）
-    setTimeout(function () { syncFromServer(); }, 2000);
-
-    // 引导昵称
-    if (state && state.visitor && !state.visitor.nickname) {
-      setTimeout(function () { try { showNicknameFirst(); } catch (e) {} }, 1200);
+    // 第 1 步：时钟（独立运行，不管后面是否出错）
+    try { updateClock(); } catch (e) {}
+    try { setInterval(updateClock, 30000); } catch (e) {}
+    // 第 2 步：加载数据（云端或本地）
+    try { await loadState(); } catch (e) {}
+    if (!state || !state.story) {
+      try { state = loadLocalState(); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
     }
-  }
-
-  function ensureState() {
-    if (state && state.story) return;
-    state = loadLocalState();
-  }
-
-  function ensureDefaults() {
-    if (!state) state = JSON.parse(JSON.stringify(DEFAULT_DATA));
-    if (!state.story) state.story = JSON.parse(JSON.stringify(DEFAULT_DATA.story));
-    if (!state.story.quick || !state.story.quick.name) state.story.quick = JSON.parse(JSON.stringify(DEFAULT_DATA.story.quick));
-    if (!Array.isArray(state.story.items)) state.story.items = [];
-    if (!state.outfit || !Array.isArray(state.outfit.items)) state.outfit = JSON.parse(JSON.stringify(DEFAULT_DATA.outfit));
-    if (!state.shop || !Array.isArray(state.shop.items)) state.shop = JSON.parse(JSON.stringify(DEFAULT_DATA.shop));
-    if (!Array.isArray((state.shop || {}).tabs) || !state.shop.tabs.length) state.shop.tabs = JSON.parse(JSON.stringify(DEFAULT_DATA.shop.tabs));
-    if (!state.visitor) state.visitor = { nickname: '', avatar: '' };
-    if (!state.meta) state.meta = { name: '瞧瞧', createdAt: Date.now(), shareUrl: window.location.origin + '/' };
-  }
-
-  async function syncFromServer() {
+    // 再次确保关键字段存在（防止在线数据缺少字段）
     try {
-      const online = await checkServer();
-      if (!online) return;
-      const data = await apiCall('GET', '/api/data');
-      // 合并服务器数据
-      state = { ...state, ...data,
-        story: { ...state.story, ...(data.story||{}) },
-        outfit: { ...state.outfit, ...(data.outfit||{}) },
-        shop: { ...state.shop, ...(data.shop||{}) },
-        meta: { ...state.meta, ...(data.meta||{}) }
-      };
-      // 保证字段完整
-      if (!Array.isArray(state.story.items)) state.story.items = [];
       if (!state.story.quick || !state.story.quick.name) state.story.quick = JSON.parse(JSON.stringify(DEFAULT_DATA.story.quick));
-      if (!Array.isArray(state.outfit.items)) state.outfit.items = [];
-      if (!Array.isArray(state.shop.items)) state.shop.items = [];
-      if (!Array.isArray(state.shop.tabs) || !state.shop.tabs.length) state.shop.tabs = JSON.parse(JSON.stringify(DEFAULT_DATA.shop.tabs));
-      useServer = true;
-      render();
+      if (!Array.isArray(state.story.items)) state.story.items = [];
+      if (!state.outfit || !Array.isArray(state.outfit.items)) state.outfit = JSON.parse(JSON.stringify(DEFAULT_DATA.outfit));
+      if (!state.shop || !Array.isArray(state.shop.items)) state.shop = JSON.parse(JSON.stringify(DEFAULT_DATA.shop));
+      if (!state.visitor) state.visitor = { nickname: '', avatar: '' };
+    } catch (e) {}
+    // 第 3 步：渲染页面（无论如何都要执行）
+    try {
+      switchTab('story');
+      clearTimeout(forceRenderTimer);
+    } catch (e) {
+      // 如果 switchTab 失败，直接手动渲染
+      try {
+        var mainEl = document.querySelector('#main');
+        if (mainEl) mainEl.innerHTML = '<div class="story-grid" style="padding:20px;text-align:center;padding-top:60px;"><p style="color:#999;">加载失败，请刷新页面重试</p><p style="font-size:12px;color:#bbb;margin-top:8px;">' + String(e && e.message ? e.message : e).replace(/</g, '&lt;') + '</p></div>';
+      } catch (e2) {}
+    }
+    // 第 4 步：引导昵称
+    try {
+      if (state && state.visitor && !state.visitor.nickname) {
+        setTimeout(function () { try { showNicknameFirst(); } catch (e) {} }, 600);
+      }
     } catch (e) {}
   }
 
-  // 直接执行（script 在 body 末尾，DOM 已就绪）
-  init();
+  // 无论如何都要执行 init
+  function boot() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { init(); });
+    } else {
+      init();
+    }
+  }
+  boot();
+  // 兜底：某些环境 DOMContentLoaded 已错过或脚本延迟执行，1.5 秒后强制初始化
+  setTimeout(function () {
+    if (!window.qiaodayInited) {
+      try { init(); } catch (e) {}
+    }
+  }, 1500);
 }
 })();
