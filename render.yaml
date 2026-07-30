@@ -1,0 +1,12 @@
+{
+  "name": "瞧的一天 - Express 后端",
+  "version": "2.0.0",
+  "description": "qiao-day backend for Render deployment",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

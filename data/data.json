@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "瞧瞧",
+    "createdAt": 1785397032297,
+    "shareUrl": "https://1f1484e89899432b898ee1b4f27da876.sh5.agentos-app.net"
+  },
+  "adminToken": "59853dfb91b0c53bf0c813602aebda2f",
+  "story": {
+    "quick": {
+      "name": "瞧瞧小档案",
+      "tag": "回归"
+    },
+    "items": []
+  },
+  "outfit": {
+    "items": []
+  },
+  "shop": {
+    "tabs": [
+      "灵感上新",
+      "联名周边",
+      "主粮零食",
+      "日用好物"
+    ],
+    "hero": {
+      "title": "",
+      "image": ""
+    },
+    "items": []
+  },
+  "adminPassword": "123456"
+}
