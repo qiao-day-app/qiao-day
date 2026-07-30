@@ -1069,6 +1069,20 @@ ul { list-style: none; }
       <div class="img-viewer-info" id="imgViewerInfo"></div>
     </div>
   </div>
+  <!-- 错误捕获：独立 script 标签，即使主 JS 语法错误也能执行 -->
+  <script>
+var _qiao_error = null;
+window.onerror = function(msg, url, line, col, err) {
+  _qiao_error = 'JS错误(行'+line+'): '+String(msg).substring(0,200);
+  var h = document.getElementById('loadingHint');
+  if (h) { h.textContent = _qiao_error; h.style.color = '#f44'; }
+  console.error(_qiao_error, err);
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var h = document.getElementById('loadingHint');
+  if (h) { h.textContent = 'Promise错误: '+String(e.reason).substring(0,200); h.style.color = '#f44'; }
+});
+  </script>
   <script>
 /* =====================================================
    瞧的一天 - 云端版
