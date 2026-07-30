@@ -20,8 +20,6 @@ window.addEventListener('unhandledrejection', function(e) {
 
 (function () {
   'use strict';
-  // 一旦 IIFE 开始执行，立刻通知外层兜底脚本 app.js 已启动
-  try { window._qiao_boot_ok = true; } catch (e) {}
   // 全局错误兜底：把错误直接显示在页面上，方便排查
   function showFatalError(title, detail) {
     try {
@@ -215,6 +213,9 @@ window.addEventListener('unhandledrejection', function(e) {
       }
       return false;
     }
+  }
+    saveLocalState();
+    return true;
   }
 
   // 上传图片到服务器
@@ -1555,5 +1556,4 @@ window.addEventListener('unhandledrejection', function(e) {
       }
     } catch (e) {}
   }, 2200);
-}
 })();
