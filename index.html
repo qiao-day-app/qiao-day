@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#1a1a1a">
   <title>瞧的一天</title>
-  <link rel="stylesheet" href="styles.css?v=1785417347">
+  <link rel="stylesheet" href="styles-20260730.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐶%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -74,6 +74,37 @@
     </div>
   </div>
 
-  <script src="app.js?v=1785417347"></script>
+  <script src="app-20260730.js"></script>
+  <!-- 终极兜底：即使外链 JS 加载失败/崩溃，也确保页面不卡在"加载中" -->
+  <script>
+    (function() {
+      var t = 0;
+      var maxWait = 5000;
+      function check() {
+        t += 300;
+        try {
+          var hint = document.getElementById('loadingHint');
+          var main = document.getElementById('main');
+          // 如果 loadingHint 消失，或被改变，说明 app.js 已接管
+          if (!hint || hint.textContent !== '加载中…' || (window._qiao_boot_ok)) {
+            return;
+          }
+        } catch(e) {}
+        if (t >= maxWait) {
+          try {
+            var h = document.getElementById('loadingHint');
+            if (h) h.remove();
+            var m = document.getElementById('main');
+            if (m && (!m.innerHTML || m.innerHTML.indexOf('story-grid') === -1)) {
+              m.innerHTML = '<div style="color:#999;text-align:center;padding:60px 20px;"><p style="font-size:18px;margin-bottom:12px;">😢 加载失败</p><p style="font-size:13px;color:#bbb;">请确认已连接到互联网</p><p style="font-size:13px;color:#bbb;">然后用 Ctrl+Shift+R 硬刷新</p><button onclick="location.reload(true)" style="margin-top:16px;padding:10px 40px;background:#333;color:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;">🔄 强制刷新</button></div>';
+            }
+          } catch(e2) {}
+          return;
+        }
+        setTimeout(check, 300);
+      }
+      setTimeout(check, 300);
+    })();
+  </script>
 </body>
 </html>
