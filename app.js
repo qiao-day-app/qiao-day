@@ -110,6 +110,13 @@
     shop: { tabs: ['灵感上新', '联名周边', '主粮零食', '日用好物'], hero: { title: '', image: '' }, items: [] }
   };
 
+  // 带超时的 fetch
+  function fetchWithTimeout(url, opts = {}, timeout = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  }
+
   async function apiCall(method, url, body = null, isFormData = false) {
     const opts = { method, headers: {} };
     if (adminToken) opts.headers['x-admin-token'] = adminToken;
@@ -117,9 +124,9 @@
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     } else if (body && isFormData) {
-      opts.body = body; // FormData, don't set Content-Type
+      opts.body = body;
     }
-    const res = await fetch(API_BASE + url, opts);
+    const res = await fetchWithTimeout(API_BASE + url, opts, 10000);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: '请求失败 (HTTP ' + res.status + ')' }));
       throw new Error(err.error || '请求失败');
@@ -129,26 +136,32 @@
 
   // 从服务器加载数据（公开接口）
   async function checkServer() {
-    try { const res = await fetch(API_BASE + '/api/data'); if (res.ok) return true; } catch (e) {}
+    try { const res = await fetchWithTimeout(API_BASE + '/api/data', {}, 3000); if (res.ok) return true; } catch (e) {}
     return false;
   }
   async function loadState() {
     if (isLoading) return;
     isLoading = true;
+    // 先快速检测服务器（3 秒），不在线则直接用本地数据
+    const online = await checkServer();
+    if (!online) {
+      useServer = false;
+      state = loadLocalState();
+      isLoading = false;
+      return;
+    }
+    // 服务器在线，拉取最新数据
     try {
       const data = await apiCall('GET', '/api/data');
       state = { ...DEFAULT_DATA, ...data, meta: { ...DEFAULT_DATA.meta, ...(data.meta || {}) }, story: { ...DEFAULT_DATA.story, ...(data.story || {}) }, outfit: { ...DEFAULT_DATA.outfit, ...(data.outfit || {}) }, shop: { ...DEFAULT_DATA.shop, ...(data.shop || {}) } };
-      // 适配旧字段
       if (!state.outfit.items) state.outfit.items = [];
       if (!state.shop.items) state.shop.items = [];
       if (!state.story.items) state.story.items = [];
       if (!state.story.quick) state.story.quick = DEFAULT_DATA.story.quick;
-      // 保留 visitor 在本地
       state.visitor = loadLocalVisitor();
     } catch (e) {
       useServer = false;
       state = loadLocalState();
-      toast('连接服务器失败，已切换本地模式');
       console.error(e);
     }
     isLoading = false;
@@ -278,6 +291,9 @@
     else if (currentTab === 'me') main.innerHTML = renderMe();
     bindTabEvents();
     if (isAdmin) bindAdminFab();
+    // 清理加载提示
+    const hint = $('#loadingHint');
+    if (hint) hint.remove();
   }
 
   // ========== 小故事页 ==========
@@ -1307,37 +1323,13 @@
       </div>
     `;
     showModal({ title: '分享「瞧的一天」', html });
-    // 生成二维码（带重试，兼容 CDN 异步加载）
-    let attempts = 0;
-    const maxAttempts = 20;
-    const tryGen = () => {
-      attempts++;
+    // 生成二维码（使用图片 API，无外部 JS 依赖）
+    setTimeout(() => {
       const target = $('#qrcode');
       if (!target) return;
-      target.innerHTML = '';
-      if (typeof QRCode === 'undefined') {
-        if (attempts < maxAttempts) {
-          target.innerHTML = '<div style="padding:20px;color:#999;">二维码加载中…</div>';
-          setTimeout(tryGen, 200);
-        } else {
-          target.innerHTML = '<div style="padding:20px;color:#c93838;">二维码库加载失败，请检查网络后重试</div>';
-        }
-        return;
-      }
-      try {
-        new QRCode(target, {
-          text: url,
-          width: 200,
-          height: 200,
-          colorDark: '#1a1a1a',
-          colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      } catch (e) {
-        target.innerHTML = '<div style="padding:20px;color:#c93838;">二维码生成失败：' + escape(e.message) + '</div>';
-      }
-    };
-    setTimeout(tryGen, 100);
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+      target.innerHTML = '<img src="' + qrUrl + '" width="200" height="200" style="display:block;margin:0 auto;" alt="二维码" onerror="this.parentElement.innerHTML=\'<div style=\\\'padding:20px;color:#999;\\\'>二维码加载失败<br><small>' + escape(url) + '</small></div>\'">';
+    }, 200);
   }
 
   // ========== 数据导入导出 ==========
@@ -1404,21 +1396,35 @@
   }
 
   async function init() {
-    updateClock();
-    setInterval(updateClock, 30000);
-    // 先加载数据：优先云端，失败降级本地
+    // 第 1 步：时钟（独立运行，不管后面是否出错）
+    try { updateClock(); } catch (e) {}
+    try { setInterval(updateClock, 30000); } catch (e) {}
+    // 第 2 步：加载数据（云端或本地）
+    try { await loadState(); } catch (e) {}
+    if (!state || !state.story) {
+      try { state = loadLocalState(); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+    }
+    // 第 3 步：渲染页面（无论如何都要执行）
+    try { switchTab('story'); } catch (e) {
+      // 如果 switchTab 失败，直接手动渲染
+      try {
+        var mainEl = document.querySelector('#main');
+        if (mainEl) mainEl.innerHTML = '<div class="story-grid" style="padding:20px;text-align:center;padding-top:60px;"><p style="color:#999;">加载失败，请刷新页面重试</p></div>';
+      } catch (e2) {}
+    }
+    // 第 4 步：引导昵称
     try {
-      await loadState();
-    } catch (e) {
-      console.error('init loadState error', e);
-    }
-    if (!state) state = loadLocalState();
-    switchTab('story');
-    // 首次使用引导昵称
-    if (!state.visitor.nickname) {
-      setTimeout(() => showNicknameFirst(), 600);
-    }
+      if (state && state.visitor && !state.visitor.nickname) {
+        setTimeout(function () { try { showNicknameFirst(); } catch (e) {} }, 600);
+      }
+    } catch (e) {}
   }
 
-  document.addEventListener('DOMContentLoaded', () => init());
+  // 无论如何都要执行 init
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { init(); });
+  } else {
+    init();
+  }
+}
 })();
