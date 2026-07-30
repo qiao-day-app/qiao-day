@@ -1449,7 +1449,6 @@ window.addEventListener('unhandledrejection', function(e) {
   function init() {
     if (window.qiaodayInited) return; // 防止重复初始化
     window.qiaodayInited = true;
-    window._qiao_boot_ok = true; // 告知内联兜底脚本：app.js 已执行
 
     try {
       // 同步：加载本地数据 + 渲染（100ms 内完成，绝不卡）
