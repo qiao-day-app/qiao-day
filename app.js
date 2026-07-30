@@ -20,9 +20,6 @@ window.addEventListener('unhandledrejection', function(e) {
 
 (function () {
   'use strict';
-  console.log('[QIAO] IIFE started');
-  try { console.log('[QIAO] document readyState:', document.readyState); } catch(e) { console.log('[QIAO] document error:', e); }
-
   // 全局错误兜底：把错误直接显示在页面上，方便排查
   function showFatalError(title, detail) {
     try {
@@ -1450,7 +1447,6 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // ========== 启动（纯同步，先本地渲染再后台同步） ==========
   function init() {
-    console.log('[QIAO] init() called');
     if (window.qiaodayInited) return; // 防止重复初始化
     window.qiaodayInited = true;
 
@@ -1540,10 +1536,8 @@ window.addEventListener('unhandledrejection', function(e) {
   }
 
   // 直接执行（script 在 body 末尾，DOM 已就绪）
-  console.log('[QIAO] about to call init, typeof init =', typeof init, 'readyState =', document.readyState);
   try {
     init();
-    console.log('[QIAO] init completed');
   } catch (e) {
     console.error('boot error', e);
     renderFallback('启动失败', String(e && e.message ? e.message : e));
