@@ -8,25 +8,6 @@
 (function () {
   'use strict';
 
-  // 全局错误兜底：把错误直接显示在页面上，方便排查
-  function showFatalError(title, detail) {
-    try {
-      const main = document.querySelector('#main');
-      if (main) {
-        main.innerHTML = '<div style="padding:60px 24px 40px;text-align:center;color:#999;"><div style="font-size:48px;margin-bottom:12px;">🐶</div><p style="color:#333;font-size:16px;margin-bottom:8px;">' + String(title || '页面出错了') + '</p><p style="font-size:12px;line-height:1.6;word-break:break-all;">' + String(detail || '').replace(/</g, '&lt;') + '</p><button onclick="location.reload(true)" style="margin-top:20px;padding:10px 20px;border-radius:20px;border:none;background:#d4a574;color:#fff;font-size:14px;">刷新重试</button></div>';
-      }
-    } catch (e) {}
-  }
-  window.onerror = function (msg, url, line, col, err) {
-    console.error('Global error:', msg, url, line, col, err);
-    showFatalError('运行报错：' + String(msg), url + ':' + line + ':' + col);
-    return false;
-  };
-  window.addEventListener('unhandledrejection', function (e) {
-    console.error('Unhandled rejection:', e.reason);
-    showFatalError('异步报错：' + String(e.reason && e.reason.message ? e.reason.message : e.reason), '');
-  });
-
   // ========== API 配置 ==========
   const API_BASE = 'https://qiao-day.onrender.com';
   let adminToken = null; // 管理员登录后存内存
@@ -252,18 +233,7 @@
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
         const p = JSON.parse(raw);
-        const merged = { ...DEFAULT_DATA, ...p, meta: { ...DEFAULT_DATA.meta, ...(p.meta||{}) }, story: { ...DEFAULT_DATA.story, ...(p.story||{}) }, outfit: { ...DEFAULT_DATA.outfit, ...(p.outfit||{}) }, shop: { ...DEFAULT_DATA.shop, ...(p.shop||{}) } };
-        // 确保所有嵌套字段都有默认值，防止旧数据/损坏数据导致渲染报错
-        if (!merged.story || typeof merged.story !== 'object') merged.story = JSON.parse(JSON.stringify(DEFAULT_DATA.story));
-        if (!merged.story.quick || !merged.story.quick.name) merged.story.quick = JSON.parse(JSON.stringify(DEFAULT_DATA.story.quick));
-        if (!Array.isArray(merged.story.items)) merged.story.items = [];
-        if (!merged.outfit || typeof merged.outfit !== 'object') merged.outfit = JSON.parse(JSON.stringify(DEFAULT_DATA.outfit));
-        if (!Array.isArray(merged.outfit.items)) merged.outfit.items = [];
-        if (!merged.shop || typeof merged.shop !== 'object') merged.shop = JSON.parse(JSON.stringify(DEFAULT_DATA.shop));
-        if (!Array.isArray(merged.shop.items)) merged.shop.items = [];
-        if (!Array.isArray(merged.shop.tabs) || !merged.shop.tabs.length) merged.shop.tabs = JSON.parse(JSON.stringify(DEFAULT_DATA.shop.tabs));
-        if (!merged.visitor || typeof merged.visitor !== 'object') merged.visitor = { nickname: '', avatar: '' };
-        return merged;
+        return { ...DEFAULT_DATA, ...p, meta: { ...DEFAULT_DATA.meta, ...(p.meta||{}) }, story: { ...DEFAULT_DATA.story, ...(p.story||{}) }, outfit: { ...DEFAULT_DATA.outfit, ...(p.outfit||{}) }, shop: { ...DEFAULT_DATA.shop, ...(p.shop||{}) } };
       }
     } catch(e) {}
     return JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -313,22 +283,14 @@
   }
 
   // ========== 渲染入口 ==========
-  function render() {
-    try {
-      const main = $('#main');
-      if (currentTab === 'story') main.innerHTML = renderStory();
-      else if (currentTab === 'outfit') main.innerHTML = renderOutfit();
-      else if (currentTab === 'shop') main.innerHTML = renderShop();
-      else if (currentTab === 'me') main.innerHTML = renderMe();
-      bindTabEvents();
-      if (isAdmin) bindAdminFab();
-    } catch (e) {
-      console.error('render error', e);
-      const main = $('#main');
-      if (main) {
-        main.innerHTML = '<div style="padding:60px 24px 40px;text-align:center;color:#999;"><div style="font-size:48px;margin-bottom:12px;">🐶</div><p style="color:#333;font-size:16px;margin-bottom:8px;">页面渲染出错</p><p style="font-size:12px;line-height:1.6;word-break:break-all;">' + String(e && e.message ? e.message : e).replace(/</g, '&lt;') + '</p><button onclick="location.reload(true)" style="margin-top:20px;padding:10px 20px;border-radius:20px;border:none;background:#d4a574;color:#fff;font-size:14px;">刷新重试</button></div>';
-      }
-    }
+  async function render() {
+    const main = $('#main');
+    if (currentTab === 'story') main.innerHTML = renderStory();
+    else if (currentTab === 'outfit') main.innerHTML = renderOutfit();
+    else if (currentTab === 'shop') main.innerHTML = renderShop();
+    else if (currentTab === 'me') main.innerHTML = renderMe();
+    bindTabEvents();
+    if (isAdmin) bindAdminFab();
     // 清理加载提示
     const hint = $('#loadingHint');
     if (hint) hint.remove();
@@ -1434,16 +1396,6 @@
   }
 
   async function init() {
-    // 强制兜底：5 秒后如果还在加载中，直接用默认数据渲染，避免任何卡住
-    const forceRenderTimer = setTimeout(function () {
-      try {
-        if ($('#loadingHint')) {
-          if (!state || !state.story) state = JSON.parse(JSON.stringify(DEFAULT_DATA));
-          switchTab('story');
-        }
-      } catch (e) {}
-    }, 5000);
-
     // 第 1 步：时钟（独立运行，不管后面是否出错）
     try { updateClock(); } catch (e) {}
     try { setInterval(updateClock, 30000); } catch (e) {}
@@ -1452,23 +1404,12 @@
     if (!state || !state.story) {
       try { state = loadLocalState(); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
     }
-    // 再次确保关键字段存在（防止在线数据缺少字段）
-    try {
-      if (!state.story.quick || !state.story.quick.name) state.story.quick = JSON.parse(JSON.stringify(DEFAULT_DATA.story.quick));
-      if (!Array.isArray(state.story.items)) state.story.items = [];
-      if (!state.outfit || !Array.isArray(state.outfit.items)) state.outfit = JSON.parse(JSON.stringify(DEFAULT_DATA.outfit));
-      if (!state.shop || !Array.isArray(state.shop.items)) state.shop = JSON.parse(JSON.stringify(DEFAULT_DATA.shop));
-      if (!state.visitor) state.visitor = { nickname: '', avatar: '' };
-    } catch (e) {}
     // 第 3 步：渲染页面（无论如何都要执行）
-    try {
-      switchTab('story');
-      clearTimeout(forceRenderTimer);
-    } catch (e) {
+    try { switchTab('story'); } catch (e) {
       // 如果 switchTab 失败，直接手动渲染
       try {
         var mainEl = document.querySelector('#main');
-        if (mainEl) mainEl.innerHTML = '<div class="story-grid" style="padding:20px;text-align:center;padding-top:60px;"><p style="color:#999;">加载失败，请刷新页面重试</p><p style="font-size:12px;color:#bbb;margin-top:8px;">' + String(e && e.message ? e.message : e).replace(/</g, '&lt;') + '</p></div>';
+        if (mainEl) mainEl.innerHTML = '<div class="story-grid" style="padding:20px;text-align:center;padding-top:60px;"><p style="color:#999;">加载失败，请刷新页面重试</p></div>';
       } catch (e2) {}
     }
     // 第 4 步：引导昵称
