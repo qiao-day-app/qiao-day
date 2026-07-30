@@ -77,14 +77,22 @@
   <script>
     // 全局错误捕获：任何 JS 错误都直接显示在页面上
     window._qiao_errors = [];
+    window._qiao_appLoaded = false;
     window.onerror = function(msg, url, line, col, err) {
       window._qiao_errors.push(String(msg) + ' (行' + line + ')');
       try {
         var h = document.getElementById('loadingHint');
-        if (h) h.textContent = 'JS错误: ' + String(msg).substring(0, 80) + ' (行' + line + ')';
+        if (h) h.innerHTML = '<span style="color:#ff6b6b;font-size:14px;">JS错误: ' + String(msg).substring(0, 80) + ' (行' + line + ')</span>';
       } catch(e) {}
       return false;
     };
+    window.addEventListener('unhandledrejection', function(e) {
+      window._qiao_errors.push('Promise错误: ' + String(e.reason));
+      try {
+        var h = document.getElementById('loadingHint');
+        if (h) h.innerHTML = '<span style="color:#ff6b6b;font-size:14px;">Promise错误: ' + String(e.reason).substring(0, 80) + '</span>';
+      } catch(e2) {}
+    });
     window.addEventListener('error', function(e) {
       if (e.target && e.target.tagName === 'SCRIPT') {
         window._qiao_errors.push('脚本加载失败: ' + (e.target.src || 'unknown'));
@@ -95,36 +103,44 @@
       }
     }, true);
   </script>
-  <script src="app-20260730.js" onerror="document.getElementById('loadingHint').textContent='app.js加载失败，请刷新'"></script>
+  <script src="app-20260730.js" onerror="window._qiao_appLoaded=false;document.getElementById('loadingHint').textContent='app.js加载失败，请刷新'"></script>
   <!-- 终极兜底：即使外链 JS 加载失败/崩溃，也确保页面不卡在"加载中" -->
   <script>
     (function() {
       var t = 0;
-      var maxWait = 5000;
+      var maxWait = 6000;
+      function showDiag() {
+        var errs = (window._qiao_errors || []).join('<br>');
+        var info = [];
+        info.push('URL: ' + location.href);
+        info.push('online: ' + navigator.onLine);
+        info.push('appLoaded: ' + window._qiao_appLoaded);
+        info.push('bootOk: ' + (window._qiao_boot_ok ? 'yes' : 'no'));
+        info.push('errors:<br>' + (errs || '无'));
+        return info.join('<br>');
+      }
       function check() {
-        t += 300;
+        t += 400;
         try {
           var hint = document.getElementById('loadingHint');
-          var main = document.getElementById('main');
-          // 如果 loadingHint 消失，或被改变，说明 app.js 已接管
-          if (!hint || hint.textContent !== '加载中…' || (window._qiao_boot_ok)) {
-            return;
-          }
+          // 如果 app.js 已接管，停止兜底
+          if (window._qiao_boot_ok) return;
+          if (!hint || hint.textContent !== '加载中…') return;
         } catch(e) {}
         if (t >= maxWait) {
           try {
             var h = document.getElementById('loadingHint');
             if (h) h.remove();
             var m = document.getElementById('main');
-            if (m && (!m.innerHTML || m.innerHTML.indexOf('story-grid') === -1)) {
-              m.innerHTML = '<div style="color:#999;text-align:center;padding:60px 20px;"><p style="font-size:18px;margin-bottom:12px;">😢 加载失败</p><p style="font-size:13px;color:#bbb;">请确认已连接到互联网</p><p style="font-size:13px;color:#bbb;">然后用 Ctrl+Shift+R 硬刷新</p><button onclick="location.reload(true)" style="margin-top:16px;padding:10px 40px;background:#333;color:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;">🔄 强制刷新</button></div>';
+            if (m) {
+              m.innerHTML = '<div id="fallback" style="color:#666;text-align:center;padding:50px 20px;font-size:14px;"><p style="font-size:18px;margin-bottom:10px;">😢 加载失败</p><p style="color:#999;font-size:12px;">app.js 未能在6秒内启动</p><button onclick="location.reload(true)" style="margin:16px 0;padding:10px 40px;background:#333;color:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;">🔄 强制刷新</button><div id="diag" style="margin-top:16px;padding:12px;background:#f7f7f7;border-radius:8px;text-align:left;font-size:11px;color:#888;line-height:1.6;word-break:break-all;">' + showDiag() + '</div></div>';
             }
           } catch(e2) {}
           return;
         }
-        setTimeout(check, 300);
+        setTimeout(check, 400);
       }
-      setTimeout(check, 300);
+      setTimeout(check, 400);
     })();
   </script>
 </body>
