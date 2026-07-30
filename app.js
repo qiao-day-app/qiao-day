@@ -9,7 +9,7 @@
   'use strict';
 
   // ========== API 配置 ==========
-  const API_BASE = window.location.origin;
+  const API_BASE = 'https://qiao-day.onrender.com';
   let adminToken = null; // 管理员登录后存内存
 
   // ========== 工具函数 ==========
@@ -146,7 +146,9 @@
       // 保留 visitor 在本地
       state.visitor = loadLocalVisitor();
     } catch (e) {
-      toast('连接服务器失败，请刷新重试');
+      useServer = false;
+      state = loadLocalState();
+      toast('连接服务器失败，已切换本地模式');
       console.error(e);
     }
     isLoading = false;
@@ -1401,9 +1403,16 @@
     $('#statusTime').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function init() {
+  async function init() {
     updateClock();
     setInterval(updateClock, 30000);
+    // 先加载数据：优先云端，失败降级本地
+    try {
+      await loadState();
+    } catch (e) {
+      console.error('init loadState error', e);
+    }
+    if (!state) state = loadLocalState();
     switchTab('story');
     // 首次使用引导昵称
     if (!state.visitor.nickname) {
@@ -1411,5 +1420,5 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => init());
 })();
