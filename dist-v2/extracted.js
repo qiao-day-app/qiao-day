@@ -1,21 +1,8 @@
 /* =====================================================
    瞧的一天 - 云端版
    4个Tab: 小故事 / 穿搭 / 周边 / 我的
-   数据存服务器端，无 localStorage 容量限制
+   数据存服务器端，无 localstoragestorage 容量限制
    管理员密码登录，游客可浏览/点单
-   ===================================================== */
-// ===== 全局错误捕获（调试用，确保任何错误都可见）=====
-window.onerror = function(msg, url, line, col, err) {
-  var hint = document.getElementById('loadingHint');
-  if (hint) hint.textContent = 'JS错误: ' + String(msg).substring(0, 100) + ' (行' + line + ')';
-  console.error('GLOBAL ERROR:', msg, line, col, err);
-};
-window.addEventListener('unhandledrejection', function(e) {
-  var hint = document.getElementById('loadingHint');
-  if (hint) hint.textContent = 'Promise错误: ' + String(e.reason).substring(0, 100);
-  console.error('UNHANDLED REJECTION:', e.reason);
-});
-/* =====================================================
 ===================================================== */
 
 (function () {
