@@ -1434,6 +1434,7 @@
   }
 
   async function init() {
+    window.qiaodayInited = true;
     // 强制兜底：5 秒后如果还在加载中，直接用默认数据渲染，避免任何卡住
     const forceRenderTimer = setTimeout(function () {
       try {
@@ -1480,10 +1481,19 @@
   }
 
   // 无论如何都要执行 init
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { init(); });
-  } else {
-    init();
+  function boot() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { init(); });
+    } else {
+      init();
+    }
   }
+  boot();
+  // 兜底：某些环境 DOMContentLoaded 已错过或脚本延迟执行，1.5 秒后强制初始化
+  setTimeout(function () {
+    if (!window.qiaodayInited) {
+      try { init(); } catch (e) {}
+    }
+  }, 1500);
 }
 })();
