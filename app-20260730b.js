@@ -224,7 +224,7 @@ window.addEventListener('unhandledrejection', function(e) {
     try {
       const form = new FormData(); form.append('image', file);
       const data = await apiCall('POST', '/api/upload', form, true);
-      return API_BASE + data.url;
+      return /^https?:\/\//.test(data.url) ? data.url : API_BASE + data.url;
     } catch(e) { return fileToBase64Local(file); }
   }
   function fileToBase64Local(file, maxW) {
@@ -257,7 +257,7 @@ window.addEventListener('unhandledrejection', function(e) {
     const res = await fetch(API_BASE + '/api/upload/public', { method: 'POST', body: form });
     if (!res.ok) throw new Error('上传失败');
     const data = await res.json();
-    return API_BASE + data.url;
+    return /^https?:\/\//.test(data.url) ? data.url : API_BASE + data.url;
   }
 
   // ---- localStorage 降级 ----
