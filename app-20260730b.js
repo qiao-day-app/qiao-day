@@ -179,6 +179,7 @@ window.addEventListener('unhandledrejection', function(e) {
   let isLoading = false;
   const INTERACTION_KEY = 'qiaoday_interactions_v1';
   const SCROLL_KEY = 'qiaoday_scroll_positions_v1';
+  const UI_STATE_KEY = 'qiaoday_ui_state_v1';
   let interactions = loadInteractions();
   let scrollPositions = loadScrollPositions();
 
@@ -206,6 +207,18 @@ window.addEventListener('unhandledrejection', function(e) {
   }
   function saveScrollPositions() {
     try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify(scrollPositions)); } catch (e) {}
+  }
+  function loadUiState() {
+    try { return JSON.parse(sessionStorage.getItem(UI_STATE_KEY) || '{}'); }
+    catch (e) { return {}; }
+  }
+  function saveUiState() {
+    try {
+      sessionStorage.setItem(UI_STATE_KEY, JSON.stringify({
+        tab: currentTab,
+        shopTab: Number(state?.shop?.activeTab || 0)
+      }));
+    } catch (e) {}
   }
 
   // 带超时的 fetch
@@ -387,12 +400,17 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // ========== 路由 ==========
   function switchTab(tab) {
+    const validTabs = ['story', 'outfit', 'shop', 'me'];
+    if (!validTabs.includes(tab)) tab = 'story';
     const main = $('#main');
     if (main && currentTab) {
       scrollPositions[currentTab] = main.scrollTop;
       saveScrollPositions();
     }
+    const previousTab = currentTab;
     currentTab = tab;
+    if (tab === 'shop' && previousTab !== 'shop' && state?.shop) state.shop.activeTab = 0;
+    saveUiState();
     $$('.tab-item').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
     // 顶部黑条显示策略
     const topBar = $('#topBar');
@@ -424,12 +442,14 @@ window.addEventListener('unhandledrejection', function(e) {
   function render() {
     try {
       const main = $('#main');
+      const restoreTop = Number(scrollPositions[currentTab] || 0);
       if (currentTab === 'story') main.innerHTML = renderStory();
       else if (currentTab === 'outfit') main.innerHTML = renderOutfit();
       else if (currentTab === 'shop') main.innerHTML = renderShop();
       else if (currentTab === 'me') main.innerHTML = renderMe();
       bindTabEvents();
       if (isAdmin) bindAdminFab();
+      requestAnimationFrame(() => { if (main) main.scrollTop = restoreTop; });
     } catch (e) {
       console.error('render error', e);
       const main = $('#main');
@@ -853,6 +873,10 @@ window.addEventListener('unhandledrejection', function(e) {
 
     // 删除/编辑按钮（事件委托）
     const main = $('#main');
+    main.onscroll = () => {
+      scrollPositions[currentTab] = main.scrollTop;
+      saveScrollPositions();
+    };
     main.onsubmit = (e) => {
       if (e.target && e.target.id === 'commentForm') {
         e.preventDefault();
@@ -937,6 +961,8 @@ window.addEventListener('unhandledrejection', function(e) {
     $$('.shop-tab').forEach((el) => {
       el.onclick = () => {
         state.shop.activeTab = parseInt(el.dataset.shopTab, 10);
+        scrollPositions.shop = 0;
+        saveUiState();
         render();
       };
     });
@@ -2063,7 +2089,14 @@ window.addEventListener('unhandledrejection', function(e) {
       ensureDefaults();
       updateClock();
       try { setInterval(updateClock, 30000); } catch (e) {}
-      switchTab('story');
+      const savedUi = loadUiState();
+      const savedTab = ['story', 'outfit', 'shop', 'me'].includes(savedUi.tab) ? savedUi.tab : 'story';
+      currentTab = savedTab;
+      if (savedTab === 'shop' && state?.shop) {
+        const savedShopTab = Number(savedUi.shopTab);
+        state.shop.activeTab = Number.isInteger(savedShopTab) && savedShopTab >= 0 && savedShopTab < (state.shop.tabs || []).length ? savedShopTab : 0;
+      }
+      switchTab(savedTab);
 
       // 异步：后台静默连服务器（不阻塞页面）
       setTimeout(function () { try { syncFromServer(); } catch (e) {} }, 2000);
@@ -2164,6 +2197,10 @@ window.addEventListener('unhandledrejection', function(e) {
       if (!Array.isArray(state.outfit.items)) state.outfit.items = [];
       if (!Array.isArray(state.shop.items)) state.shop.items = [];
       if (!Array.isArray(state.shop.tabs) || !state.shop.tabs.length) state.shop.tabs = JSON.parse(JSON.stringify(DEFAULT_DATA.shop.tabs));
+      if (currentTab === 'shop') {
+        const rememberedShopTab = Number(loadUiState().shopTab);
+        state.shop.activeTab = Number.isInteger(rememberedShopTab) && rememberedShopTab >= 0 && rememberedShopTab < state.shop.tabs.length ? rememberedShopTab : 0;
+      }
       useServer = true;
       render();
       clearTimeout(wakeNoticeTimer);
