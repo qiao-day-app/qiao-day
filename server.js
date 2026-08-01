@@ -72,12 +72,60 @@ async function initDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_backups (
+      id BIGSERIAL PRIMARY KEY,
+      data JSONB NOT NULL,
+      reason TEXT NOT NULL DEFAULT 'daily',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   const seed = readLocalData();
   await pool.query(
     'INSERT INTO app_state (id, data) VALUES (1, $1::jsonb) ON CONFLICT (id) DO NOTHING',
     [JSON.stringify(seed)]
   );
+  await ensureDailyBackup('startup');
   console.log('PostgreSQL 数据库已连接');
+}
+
+async function ensureDailyBackup(reason = 'daily') {
+  if (!pool) return null;
+  const result = await pool.query(`
+    INSERT INTO app_backups (data, reason)
+    SELECT data, $1 FROM app_state
+    WHERE id = 1
+      AND NOT EXISTS (
+        SELECT 1 FROM app_backups
+        WHERE created_at >= DATE_TRUNC('day', NOW())
+      )
+    RETURNING id, created_at
+  `, [reason]);
+  return result.rows[0] || null;
+}
+
+async function createBackup(reason = 'manual') {
+  if (!pool) {
+    const err = new Error('云数据库未配置，无法创建云端备份');
+    err.status = 503;
+    throw err;
+  }
+  const result = await pool.query(`
+    INSERT INTO app_backups (data, reason)
+    SELECT data, $1 FROM app_state WHERE id = 1
+    RETURNING id, reason, created_at
+  `, [reason]);
+  return result.rows[0];
+}
+
+async function trimOldBackups() {
+  if (!pool) return;
+  await pool.query(`
+    DELETE FROM app_backups
+    WHERE id NOT IN (
+      SELECT id FROM app_backups ORDER BY created_at DESC LIMIT 30
+    )
+  `);
 }
 
 async function readData() {
@@ -96,6 +144,7 @@ async function writeData(data) {
     writeLocalData(data);
     return;
   }
+  await ensureDailyBackup('before-change');
   await pool.query(
     `INSERT INTO app_state (id, data, updated_at)
      VALUES (1, $1::jsonb, NOW())
@@ -213,6 +262,10 @@ async function requireAdmin(req, res, next) {
 }
 
 // ========== API 路由 ==========
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, time: Date.now(), database: Boolean(pool), storage: Boolean(supabase) });
+});
 
 // 公开：获取所有数据（不含 adminToken）
 app.get('/api/data', asyncRoute(async (req, res) => {
@@ -363,6 +416,25 @@ app.post('/api/import', asyncRoute(requireAdmin), asyncRoute(async (req, res) =>
   }
 }));
 
+// 管理员：查看最近备份状态
+app.get('/api/backups', asyncRoute(requireAdmin), asyncRoute(async (req, res) => {
+  if (!pool) return res.json({ enabled: false, backups: [] });
+  const result = await pool.query(`
+    SELECT id, reason, created_at
+    FROM app_backups
+    ORDER BY created_at DESC
+    LIMIT 30
+  `);
+  res.json({ enabled: true, backups: result.rows });
+}));
+
+// 管理员：立即创建一份云端备份
+app.post('/api/backups', asyncRoute(requireAdmin), asyncRoute(async (req, res) => {
+  const backup = await createBackup('manual');
+  await trimOldBackups();
+  res.json({ ok: true, backup });
+}));
+
 // 修改管理员密码
 app.post('/api/admin/password', asyncRoute(requireAdmin), asyncRoute(async (req, res) => {
   const { newPassword } = req.body;
@@ -384,6 +456,17 @@ app.use((err, req, res, next) => {
 async function start() {
   await initDatabase();
   await initStorage();
+  if (pool) {
+    const backupTimer = setInterval(async () => {
+      try {
+        await ensureDailyBackup('daily');
+        await trimOldBackups();
+      } catch (error) {
+        console.error('自动备份失败:', error.message);
+      }
+    }, 6 * 60 * 60 * 1000);
+    if (backupTimer.unref) backupTimer.unref();
+  }
   app.listen(PORT, () => {
     console.log(`瞧的一天 服务端运行在 http://localhost:${PORT}`);
   });
