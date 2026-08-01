@@ -531,6 +531,21 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>`).join('')}</div></section>`;
   }
 
+  function renderHomeCommentBoard() {
+    const comments = Array.isArray(state.comments) ? state.comments : [];
+    const nickname = state.visitor?.nickname || '';
+    return `<section class="comment-board home-comment-board">
+      <div class="story-section-title">留言板 <small>${comments.length} 条公开留言</small></div>
+      <form class="comment-form" id="commentForm">
+        <input class="form-input" id="commentName" maxlength="30" placeholder="你的昵称" value="${escape(nickname)}">
+        <textarea class="form-textarea" id="commentContent" maxlength="300" placeholder="给瞧瞧留句话吧"></textarea>
+        <button class="btn-primary" id="commentSubmit" type="submit">提交留言</button>
+        <small>留言经管理员审核后公开显示</small>
+      </form>
+      <div class="comment-list">${comments.length ? comments.map(comment => `<div class="comment-item"><strong>${escape(comment.name)}</strong><p>${escape(comment.content)}</p><small>${fmtDate(comment.createdAt)}</small></div>`).join('') : '<div class="order-empty">还没有公开留言，来做第一个留言的人吧</div>'}</div>
+    </section>`;
+  }
+
   // ========== 小故事页 ==========
   function renderStory() {
     const items = state.story.items || [];
@@ -619,6 +634,8 @@ window.addEventListener('unhandledrejection', function(e) {
           </div>
         `).join('')}
       </div>
+
+      ${renderHomeCommentBoard()}
 
       <div class="btn-row">
         <button class="btn-primary" data-action="upload-story" style="flex:1;">${isAdmin ? '上传新故事' : '提交我的故事'}</button>
