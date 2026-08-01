@@ -138,7 +138,7 @@ window.addEventListener('unhandledrejection', function(e) {
     meta: { name: '瞧瞧', createdAt: Date.now(), shareUrl: window.location.origin + '/' },
     story: { quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
     outfit: { items: [] },
-    shop: { tabs: ['灵感上新', '联名周边', '主粮零食', '日用好物'], hero: { title: '', image: '' }, items: [] }
+    shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] }
   };
 
   // 带超时的 fetch
