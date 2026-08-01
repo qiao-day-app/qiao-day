@@ -1068,9 +1068,7 @@ window.addEventListener('unhandledrejection', function(e) {
   }
 
   function updateViewerInfo(info, total) {
-    info.innerHTML = Array.from({ length: total }, (_, i) => {
-      return `<span class="img-viewer-dot${i === viewerIndex ? ' active' : ''}"></span>`;
-    }).join('') + `<span style="margin-left:4px;">${viewerIndex + 1}/${total}</span>`;
+    info.innerHTML = `<span>${viewerIndex + 1}/${total}</span>`;
   }
 
   function closeImageViewer() {
