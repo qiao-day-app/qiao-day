@@ -1657,19 +1657,30 @@ window.addEventListener('unhandledrejection', function(e) {
   }
 
   // ========== 访客点单 / 推荐 ==========
-  function handleOrderOutfit(id) {
+  async function handleOrderOutfit(id) {
     if (!state.visitor.nickname) {
       return showNicknameFirst(() => handleOrderOutfit(id));
     }
     const outfit = state.outfit.items.find((o) => o.id === id);
     if (!outfit) return;
-    outfit.orders = outfit.orders || [];
-    outfit.orders.push({ name: state.visitor.nickname, time: Date.now() });
-    state.visitor.orders = state.visitor.orders || [];
-    state.visitor.orders.push({ type: 'outfit', id, time: Date.now(), name: state.visitor.nickname });
-    saveState();
-    toast(`已为 ${state.visitor.nickname} 记下 ✨`);
-    render();
+    const orderTime = Date.now();
+    toast('正在为你记下…', 3000);
+    try {
+      await apiCall('POST', '/api/orders/outfit', {
+        outfitId: id,
+        name: state.visitor.nickname,
+        time: orderTime
+      });
+      outfit.orders = outfit.orders || [];
+      outfit.orders.push({ name: state.visitor.nickname, time: orderTime });
+      state.visitor.orders = state.visitor.orders || [];
+      state.visitor.orders.push({ type: 'outfit', id, time: orderTime, name: state.visitor.nickname });
+      saveLocalVisitor();
+      toast(`已为 ${state.visitor.nickname} 记下 ✨`);
+      render();
+    } catch (e) {
+      toast(e.message || '点单失败，请稍后重试', 4000);
+    }
   }
 
   function showVisitorUpload(type) {
