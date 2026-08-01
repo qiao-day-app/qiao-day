@@ -1368,6 +1368,11 @@ ul { list-style: none; }
 /* 留言板 */
 .comment-board { margin: 0 20px 20px; background: #fff; border-radius: 16px; overflow: hidden; }
 .comment-board .story-section-title { padding-top: 18px; }
+.home-comment-board {
+  margin: 26px 18px 8px; border-radius: 20px; overflow: hidden;
+  background: #fff; box-shadow: 0 8px 26px rgba(90,58,26,.07);
+}
+.home-comment-board .story-section-title { padding-left: 18px; padding-right: 18px; }
 .comment-form { padding: 0 18px 18px; display: grid; gap: 10px; }
 .comment-form small { color: #999; text-align: center; }
 .comment-form .btn-primary:disabled { opacity: .55; cursor: wait; }
