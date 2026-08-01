@@ -120,7 +120,7 @@ const upload = multer({
 
 const zipUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // Supabase Free 上限 50MB
   fileFilter: (req, file, cb) => {
     const isZipName = /\.zip$/i.test(file.originalname || '');
     const allowedTypes = ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'];
@@ -151,10 +151,14 @@ async function initStorage() {
     fileSizeLimit: 10 * 1024 * 1024,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   });
-  await ensurePublicBucket(FILES_BUCKET, {
-    fileSizeLimit: 100 * 1024 * 1024,
-    allowedMimeTypes: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream']
-  });
+  try {
+    await ensurePublicBucket(FILES_BUCKET, {
+      fileSizeLimit: 50 * 1024 * 1024,
+      allowedMimeTypes: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream']
+    });
+  } catch (error) {
+    console.error(`Supabase 文件存储桶不可用: ${error.message}`);
+  }
 }
 
 async function uploadImageToCloud(file) {

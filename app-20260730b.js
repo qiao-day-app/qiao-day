@@ -1061,7 +1061,7 @@ window.addEventListener('unhandledrejection', function(e) {
       <div class="form-group">
         <label class="form-label">桌宠 ZIP 文件（电子瞧瞧）</label>
         <input class="form-input" id="shopZipFile" type="file" accept=".zip,application/zip,application/x-zip-compressed">
-        <div id="shopZipHint" style="font-size:12px;color:#999;margin-top:6px;">${editing && editing.fileName ? '当前文件：' + escape(editing.fileName) : '仅选择“电子瞧瞧”分类时需要，最大 100MB'}</div>
+        <div id="shopZipHint" style="font-size:12px;color:#999;margin-top:6px;">${editing && editing.fileName ? '当前文件：' + escape(editing.fileName) : '仅选择“电子瞧瞧”分类时需要，最大 50MB'}</div>
       </div>
     `;
     const footer = `
