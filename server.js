@@ -14,6 +14,7 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'qiao-day-images';
+const FILES_BUCKET = process.env.SUPABASE_FILES_BUCKET || 'qiao-day-files';
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
   ssl: /localhost|127\.0\.0\.1/.test(DATABASE_URL) ? false : { rejectUnauthorized: false }
@@ -117,23 +118,43 @@ const upload = multer({
   }
 });
 
+const zipUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  fileFilter: (req, file, cb) => {
+    const isZipName = /\.zip$/i.test(file.originalname || '');
+    const allowedTypes = ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'];
+    cb(null, isZipName && allowedTypes.includes(file.mimetype));
+  }
+});
+
+async function ensurePublicBucket(name, options) {
+  const { data, error } = await supabase.storage.getBucket(name);
+  if (!error && data) {
+    console.log(`Supabase Storage 已连接: ${name}`);
+    return;
+  }
+  const { error: createError } = await supabase.storage.createBucket(name, {
+    public: true,
+    ...options
+  });
+  if (createError) throw createError;
+  console.log(`Supabase Storage 存储桶已创建: ${name}`);
+}
+
 async function initStorage() {
   if (!supabase) {
     console.warn('Supabase Storage 未配置，图片上传已禁用以防止数据丢失');
     return;
   }
-  const { data, error } = await supabase.storage.getBucket(STORAGE_BUCKET);
-  if (!error && data) {
-    console.log(`Supabase Storage 已连接: ${STORAGE_BUCKET}`);
-    return;
-  }
-  const { error: createError } = await supabase.storage.createBucket(STORAGE_BUCKET, {
-    public: true,
+  await ensurePublicBucket(STORAGE_BUCKET, {
     fileSizeLimit: 10 * 1024 * 1024,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   });
-  if (createError) throw createError;
-  console.log(`Supabase Storage 存储桶已创建: ${STORAGE_BUCKET}`);
+  await ensurePublicBucket(FILES_BUCKET, {
+    fileSizeLimit: 100 * 1024 * 1024,
+    allowedMimeTypes: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream']
+  });
 }
 
 async function uploadImageToCloud(file) {
@@ -151,6 +172,23 @@ async function uploadImageToCloud(file) {
   });
   if (error) throw error;
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(objectPath);
+  return data.publicUrl;
+}
+
+async function uploadZipToCloud(file) {
+  if (!supabase) {
+    const err = new Error('文件云存储尚未配置，请联系管理员');
+    err.status = 503;
+    throw err;
+  }
+  const objectPath = `downloads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.zip`;
+  const { error } = await supabase.storage.from(FILES_BUCKET).upload(objectPath, file.buffer, {
+    contentType: 'application/zip',
+    cacheControl: '3600',
+    upsert: false
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(FILES_BUCKET).getPublicUrl(objectPath);
   return data.publicUrl;
 }
 
@@ -233,6 +271,13 @@ app.post('/api/upload/public', upload.single('image'), asyncRoute(async (req, re
   if (!req.file) return res.status(400).json({ error: '未收到图片文件' });
   const url = await uploadImageToCloud(req.file);
   res.json({ url });
+}));
+
+// 管理员：上传可下载的 ZIP 文件（桌宠等电子产品）
+app.post('/api/upload/file', asyncRoute(requireAdmin), zipUpload.single('file'), asyncRoute(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '请上传有效的 ZIP 文件' });
+  const url = await uploadZipToCloud(req.file);
+  res.json({ url, name: req.file.originalname, size: req.file.size });
 }));
 
 // 公开：下单穿搭

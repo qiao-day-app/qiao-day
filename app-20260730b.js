@@ -157,7 +157,7 @@ window.addEventListener('unhandledrejection', function(e) {
     } else if (body && isFormData) {
       opts.body = body;
     }
-    const res = await fetchWithTimeout(API_BASE + url, opts, 10000);
+    const res = await fetchWithTimeout(API_BASE + url, opts, isFormData ? 120000 : 10000);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: '请求失败 (HTTP ' + res.status + ')' }));
       throw new Error(err.error || '请求失败');
@@ -258,6 +258,12 @@ window.addEventListener('unhandledrejection', function(e) {
     if (!res.ok) throw new Error('上传失败');
     const data = await res.json();
     return /^https?:\/\//.test(data.url) ? data.url : API_BASE + data.url;
+  }
+
+  async function uploadDownloadFile(file) {
+    const form = new FormData();
+    form.append('file', file);
+    return apiCall('POST', '/api/upload/file', form, true);
   }
 
   // ---- localStorage 降级 ----
@@ -531,6 +537,7 @@ window.addEventListener('unhandledrejection', function(e) {
             <div class="shop-item-info">
               <div class="shop-item-name">${escape(it.name)}</div>
               <div class="shop-item-price">${it.price ? '¥' + it.price : '敬请期待'}</div>
+              ${it.fileUrl ? `<a href="${escape(it.fileUrl)}" download="${escape(it.fileName || '电子瞧瞧.zip')}" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:7px 10px;border-radius:16px;background:#333;color:#fff;text-align:center;font-size:12px;text-decoration:none;">⬇ 下载桌宠</a>` : ''}
             </div>
           </div>
         `).join('')}
@@ -1051,6 +1058,11 @@ window.addEventListener('unhandledrejection', function(e) {
         <label class="form-label">描述</label>
         <textarea class="form-textarea" id="shopDesc" placeholder="材质/尺寸/购买方式">${editing ? escape(editing.description || '') : ''}</textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">桌宠 ZIP 文件（电子瞧瞧）</label>
+        <input class="form-input" id="shopZipFile" type="file" accept=".zip,application/zip,application/x-zip-compressed">
+        <div id="shopZipHint" style="font-size:12px;color:#999;margin-top:6px;">${editing && editing.fileName ? '当前文件：' + escape(editing.fileName) : '仅选择“电子瞧瞧”分类时需要，最大 100MB'}</div>
+      </div>
     `;
     const footer = `
       <button class="btn-secondary" onclick="closeModal()">取消</button>
@@ -1060,6 +1072,11 @@ window.addEventListener('unhandledrejection', function(e) {
 
     const uploadArea = $('#shopUpload');
     const fileInput = $('#shopFile');
+    const zipInput = $('#shopZipFile');
+    zipInput.onchange = () => {
+      const zip = zipInput.files[0];
+      $('#shopZipHint').textContent = zip ? `已选择：${zip.name}（${Math.ceil(zip.size / 1024 / 1024)}MB）` : '未选择文件';
+    };
     uploadArea.onclick = () => fileInput.click();
     fileInput.onchange = async (e) => {
       const file = e.target.files[0];
@@ -1087,18 +1104,34 @@ window.addEventListener('unhandledrejection', function(e) {
       const description = $('#shopDesc').value.trim();
       const category = parseInt($('#shopCategory').value, 10);
       let image = editing ? editing.image : '';
+      let fileUrl = editing ? (editing.fileUrl || '') : '';
+      let fileName = editing ? (editing.fileName || '') : '';
+      let fileSize = editing ? (editing.fileSize || 0) : 0;
       const file = fileInput.files[0];
       if (file) image = await uploadImage(file);
       if (!name) return toast('请填写商品名字');
       if (!image) return toast('请上传图片');
+      const zip = zipInput.files[0];
+      if (category === 3 && !zip && !fileUrl) return toast('电子瞧瞧需要上传 ZIP 文件');
+      if (zip) {
+        if (!/\.zip$/i.test(zip.name)) return toast('仅支持 ZIP 文件');
+        toast('正在上传桌宠文件，请稍候…', 10000);
+        const uploaded = await uploadDownloadFile(zip);
+        fileUrl = uploaded.url;
+        fileName = uploaded.name || zip.name;
+        fileSize = uploaded.size || zip.size;
+      }
       if (editing) {
         editing.name = name;
         editing.price = price;
         editing.description = description;
         editing.image = image;
         editing.category = category;
+        editing.fileUrl = fileUrl;
+        editing.fileName = fileName;
+        editing.fileSize = fileSize;
       } else {
-        state.shop.items.unshift({ id: uid(), name, image, price, description, category, orders: [] });
+        state.shop.items.unshift({ id: uid(), name, image, price, description, category, fileUrl, fileName, fileSize, orders: [] });
       }
       if (!saveState()) return;
       closeModal();
