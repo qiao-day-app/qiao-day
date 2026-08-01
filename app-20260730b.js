@@ -472,7 +472,7 @@ window.addEventListener('unhandledrejection', function(e) {
     ].filter(pick => pick.item);
     if (!picks.length) return '';
     return `<section class="today-section"><div class="story-section-title">今日瞧瞧 <small>每天更新</small></div>
-      <div class="today-grid">${picks.map(pick => `<div class="today-card">
+      <div class="today-grid">${picks.map(pick => `<div class="today-card" data-detail-type="${pick.type}" data-detail-id="${pick.item.id}">
         <img src="${escape(pick.item.image || state.story.avatar || '')}" alt="" loading="lazy" decoding="async">
         <div class="today-card-info"><small>${pick.label}</small><strong>${escape(pick.item.title || pick.item.name || '瞧瞧')}</strong></div>
         ${renderSocialActions(pick.type, pick.item)}
@@ -487,7 +487,7 @@ window.addEventListener('unhandledrejection', function(e) {
     ].sort((a, b) => Number(b.item.likes || 0) - Number(a.item.likes || 0)).slice(0, 3);
     if (!all.some(entry => Number(entry.item.likes || 0) > 0)) return '';
     return `<section class="popular-section"><div class="story-section-title">大家都喜欢 <small>热门内容</small></div>
-      <div class="popular-list">${all.map(entry => `<div class="popular-item">
+      <div class="popular-list">${all.map(entry => `<div class="popular-item" data-detail-type="${entry.type}" data-detail-id="${entry.item.id}">
         <img src="${escape(entry.item.image || state.story.avatar || '')}" alt="" loading="lazy" decoding="async">
         <span>${escape(entry.item.title || entry.item.name || '瞧瞧')}</span><b>♥ ${Number(entry.item.likes || 0)}</b>
       </div>`).join('')}</div></section>`;
@@ -840,6 +840,16 @@ window.addEventListener('unhandledrejection', function(e) {
       if (favoriteButton) { toggleFavorite(favoriteButton.dataset.favoriteType, favoriteButton.dataset.favoriteId); return; }
       const shareButton = t.closest('[data-share-id]');
       if (shareButton) { createShareCard(shareButton.dataset.shareType, shareButton.dataset.shareId); return; }
+      if (t.closest('a')) return;
+      const detailTarget = t.closest('[data-detail-id]');
+      if (detailTarget) {
+        const type = detailTarget.dataset.detailType;
+        const groups = { story: state.story.items || [], outfit: state.outfit.items || [], shop: state.shop.items || [] };
+        const items = groups[type] || [];
+        const index = items.findIndex(item => item.id === detailTarget.dataset.detailId);
+        if (index !== -1) openContentViewer(type, items, index);
+        return;
+      }
       // 删除
       if (t.dataset.delStory) { handleDeleteStory(t.dataset.delStory); return; }
       if (t.dataset.delOutfit) { handleDeleteOutfit(t.dataset.delOutfit); return; }
@@ -858,6 +868,21 @@ window.addEventListener('unhandledrejection', function(e) {
       if (bannerItem) {
         const oid = bannerItem.dataset.outfitId;
         if (oid) handleOrderOutfit(oid);
+        return;
+      }
+      const outfitCard = t.closest('.outfit-card');
+      if (outfitCard) {
+        const items = state.outfit.items || [];
+        const index = items.findIndex(item => item.id === outfitCard.dataset.outfitId);
+        if (index !== -1) openContentViewer('outfit', items, index);
+        return;
+      }
+      const shopCard = t.closest('.shop-item');
+      if (shopCard) {
+        const activeTab = state.shop.activeTab || 0;
+        const items = (state.shop.items || []).filter(item => (item.category || 0) === activeTab);
+        const index = items.findIndex(item => item.id === shopCard.dataset.shopId);
+        if (index !== -1) openContentViewer('shop', items, index);
         return;
       }
       // 故事卡片 → 打开全屏查看器
@@ -949,9 +974,11 @@ window.addEventListener('unhandledrejection', function(e) {
   let viewerTouchStartX = 0;
   let viewerTouchStartY = 0;
   let viewerSwipeLocked = null; // 'h' | 'v' | null
+  let viewerType = 'story';
 
-  function openImageViewer(items, startIndex) {
+  function openContentViewer(type, items, startIndex) {
     if (!items || items.length === 0) return;
+    viewerType = type;
     viewerItems = items;
     viewerIndex = startIndex || 0;
 
@@ -959,11 +986,26 @@ window.addEventListener('unhandledrejection', function(e) {
     const swipe = $('#imgViewerSwipe');
     const info = $('#imgViewerInfo');
 
-    // 渲染所有页
+    const typeNames = { story: '瞧瞧故事', outfit: '瞧瞧穿搭', shop: '瞧瞧好物' };
     swipe.innerHTML = items.map((it, i) => {
       const isComic = it.type === 'comic';
-      return `<div class="img-viewer-page ${isComic ? 'scrollable' : 'fit'}" data-viewer-idx="${i}">
-          <img src="${it.image || ''}" alt="${escape(it.title || '')}" draggable="false" loading="eager" decoding="async">
+      const title = it.title || it.name || '瞧瞧';
+      const description = it.description || (type === 'story' ? (isComic ? '瞧瞧漫画' : '瞧瞧美照') : '和瞧瞧一起慢慢发现美好');
+      return `<div class="img-viewer-page" data-viewer-idx="${i}">
+        <article class="content-detail">
+          <div class="content-detail-image ${isComic ? 'comic' : ''}">
+            ${it.image ? `<img src="${it.image}" alt="${escape(title)}" draggable="false" loading="eager" decoding="async">` : '<div class="detail-image-empty">🐶</div>'}
+          </div>
+          <div class="content-detail-body">
+            <div class="content-detail-type">${typeNames[type] || '瞧的一天'}</div>
+            <h2>${escape(title)}</h2>
+            <p>${escape(description)}</p>
+            ${type === 'story' ? `<small>${fmtDate(it.date || Date.now())}</small>` : ''}
+            ${type === 'outfit' && it.price ? `<div class="content-detail-price">参考价 ¥${it.price}</div>` : ''}
+            ${type === 'shop' && it.fileUrl ? `<a class="content-detail-download" href="${escape(it.fileUrl)}" target="_blank" rel="noopener">下载 ${escape(it.fileName || '电子瞧瞧')}</a>` : ''}
+            ${renderSocialActions(type, it)}
+          </div>
+        </article>
       </div>`;
     }).join('');
 
@@ -1006,10 +1048,12 @@ window.addEventListener('unhandledrejection', function(e) {
     };
   }
 
+  function openImageViewer(items, startIndex) {
+    openContentViewer('story', items, startIndex);
+  }
+
   function updateViewerInfo(info, total) {
     info.innerHTML = Array.from({ length: total }, (_, i) => {
-      const page = viewerItems[i];
-      const typeLabel = page.type === 'comic' ? '漫画' : '美照';
       return `<span class="img-viewer-dot${i === viewerIndex ? ' active' : ''}"></span>`;
     }).join('') + `<span style="margin-left:4px;">${viewerIndex + 1}/${total}</span>`;
   }
@@ -1022,8 +1066,13 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // 关闭按钮
   if ($('#imgViewerClose')) $('#imgViewerClose').onclick = closeImageViewer;
-  // 点击背景关闭
   if ($('#imgViewer')) $('#imgViewer').onclick = (e) => {
+    const likeButton = e.target.closest('[data-like-id]');
+    if (likeButton) { toggleLike(likeButton.dataset.likeType, likeButton.dataset.likeId); return; }
+    const favoriteButton = e.target.closest('[data-favorite-id]');
+    if (favoriteButton) { toggleFavorite(favoriteButton.dataset.favoriteType, favoriteButton.dataset.favoriteId); return; }
+    const shareButton = e.target.closest('[data-share-id]');
+    if (shareButton) { createShareCard(shareButton.dataset.shareType, shareButton.dataset.shareId); return; }
     if (e.target === $('#imgViewer')) closeImageViewer();
   };
 
@@ -1560,6 +1609,7 @@ window.addEventListener('unhandledrejection', function(e) {
     item.likes = Math.max(0, Number(item.likes || 0) + (wasLiked ? -1 : 1));
     saveInteractions();
     render();
+    if ($('#imgViewer')?.classList.contains('show')) openContentViewer(viewerType, viewerItems, viewerIndex);
     try {
       const result = await apiCall('POST', '/api/likes', { type, id, delta: wasLiked ? -1 : 1 });
       item.likes = result.likes;
@@ -1570,6 +1620,7 @@ window.addEventListener('unhandledrejection', function(e) {
       toast('点赞失败，请稍后重试');
     }
     render();
+    if ($('#imgViewer')?.classList.contains('show')) openContentViewer(viewerType, viewerItems, viewerIndex);
   }
 
   function toggleFavorite(type, id) {
@@ -1579,6 +1630,7 @@ window.addEventListener('unhandledrejection', function(e) {
     saveInteractions();
     toast(interactions.favorites[key] ? '已收藏到本机' : '已取消收藏');
     render();
+    if ($('#imgViewer')?.classList.contains('show')) openContentViewer(viewerType, viewerItems, viewerIndex);
   }
 
   async function submitComment() {
