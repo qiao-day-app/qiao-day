@@ -1191,7 +1191,8 @@ ul { list-style: none; }
 .content-detail-body p { color: #666; line-height: 1.8; white-space: pre-wrap; margin-bottom: 8px; }
 .content-detail-body > small { color: #aaa; }
 .content-detail-body .social-actions { margin-top: 18px; }
-.content-detail-body .social-btn { height: 38px; padding: 0 16px; font-size: 14px; }
+.content-detail-body .social-btn { width: 38px; height: 38px; padding: 5px; }
+.content-detail-body .social-btn svg { width: 27px; height: 27px; }
 .content-detail-price { margin-top: 12px; color: #c93838; font-size: 18px; font-weight: 700; }
 .content-detail-download { display: inline-block; margin-top: 14px; padding: 11px 20px; border-radius: 999px; background: #1a1a1a; color: #fff; }
 .img-viewer-info {
@@ -1324,16 +1325,21 @@ ul { list-style: none; }
 .wake-notice.retry { pointer-events: auto; cursor: pointer; }
 
 /* 点赞、收藏与分享 */
-.social-actions { display: flex; gap: 6px; margin-top: 8px; position: relative; z-index: 3; }
+.social-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; position: relative; z-index: 3; }
 .social-btn {
-  min-width: 30px; height: 28px; padding: 0 8px;
-  border-radius: 999px; background: rgba(255,255,255,.9);
-  color: #777; border: 1px solid #eee4d8; font-size: 12px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  width: 30px; height: 30px; min-width: 0; padding: 3px;
+  border-radius: 0; background: transparent;
+  color: #777; border: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color .18s ease, transform .18s ease;
 }
-.social-btn.active { color: #c93838; background: #fff0f0; border-color: #ffd0d0; }
+.social-btn svg { width: 22px; height: 22px; display: block; pointer-events: none; }
+.social-btn:hover { color: #1a1a1a; }
+.social-btn:active { transform: scale(.88); }
+.social-btn.active { color: #1a1a1a; background: transparent; border: none; }
 .shop-item .social-actions { margin-top: 6px; }
-.shop-item .social-btn { height: 24px; min-width: 26px; padding: 0 6px; background: rgba(255,255,255,.92); }
+.shop-item .social-btn { width: 26px; height: 26px; min-width: 0; padding: 2px; background: transparent; color: #fff; }
+.shop-item .social-btn svg { width: 19px; height: 19px; }
 .hot-badge {
   position: absolute; top: 8px; left: 8px; z-index: 4;
   padding: 5px 9px; border-radius: 999px;
