@@ -1458,3 +1458,58 @@ ul { list-style: none; }
 .img-viewer-swipe.is-dragging { cursor: grabbing; }
 @media (hover: hover) { .img-viewer-swipe { cursor: grab; } }
 @media (prefers-reduced-motion: reduce) { .img-viewer-page { transition-duration: .01ms; } }
+
+/* Swipe discovery cues: peeking cards + first-open hand gesture */
+.viewer-card-peek {
+  position: fixed; top: 28%; z-index: 2012;
+  width: 22px; height: 42%; min-height: 190px;
+  display: none; pointer-events: none;
+  border: 1px solid rgba(176,120,49,.22);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,235,222,.92));
+  box-shadow: 0 10px 30px rgba(63,42,18,.16);
+  opacity: .9;
+}
+.viewer-card-peek.show { display: block; }
+.viewer-card-peek-left { left: -12px; border-radius: 0 18px 18px 0; transform: rotate(1.6deg); }
+.viewer-card-peek-right { right: -12px; border-radius: 18px 0 0 18px; transform: rotate(-1.6deg); }
+.viewer-card-peek::after {
+  content: ''; position: absolute; top: 18px; bottom: 18px; width: 3px;
+  border-radius: 999px; background: rgba(176,120,49,.22);
+}
+.viewer-card-peek-left::after { right: 4px; }
+.viewer-card-peek-right::after { left: 4px; }
+.viewer-gesture-demo {
+  position: fixed; left: 50%; bottom: 62px; z-index: 2014;
+  width: 168px; height: 72px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  color: #fff; pointer-events: none; opacity: 0;
+  transition: opacity .25s ease;
+}
+.viewer-gesture-demo.show { opacity: 1; }
+.viewer-gesture-track {
+  position: absolute; left: 24px; right: 24px; top: 23px; height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+}
+.viewer-gesture-hand {
+  position: absolute; top: 0; left: 68px; width: 32px; height: 32px;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,.28));
+  animation: viewer-hand-swipe 1.45s ease-in-out infinite;
+}
+.viewer-gesture-label {
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(26,26,26,.78); font-size: 11px; font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0,0,0,.16);
+}
+@keyframes viewer-hand-swipe {
+  0%, 100% { transform: translateX(-35px) rotate(-5deg); }
+  50% { transform: translateX(35px) rotate(5deg); }
+}
+@media (min-width: 900px) {
+  .viewer-card-peek { width: 30px; }
+  .viewer-card-peek-left { left: -14px; }
+  .viewer-card-peek-right { right: -14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .viewer-gesture-hand { animation: none; }
+}
