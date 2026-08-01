@@ -442,13 +442,19 @@ window.addEventListener('unhandledrejection', function(e) {
     if (hint) hint.remove();
   }
 
+  function renderActionIcon(name, active) {
+    if (name === 'like') return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z" ${active ? 'fill="currentColor"' : 'fill="none"'} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    if (name === 'favorite') return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1V21L12 17l-6.5 4V4.5a1 1 0 0 1 1-1Z" ${active ? 'fill="currentColor"' : 'fill="none"'} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  }
+
   function renderSocialActions(type, item) {
     const liked = isLiked(type, item.id);
     const favorite = isFavorite(type, item.id);
     return `<div class="social-actions">
-      <button class="social-btn${liked ? ' active' : ''}" data-like-type="${type}" data-like-id="${item.id}">♥ <span>${Number(item.likes || 0)}</span></button>
-      <button class="social-btn${favorite ? ' active' : ''}" data-favorite-type="${type}" data-favorite-id="${item.id}">${favorite ? '★' : '☆'}</button>
-      <button class="social-btn" data-share-type="${type}" data-share-id="${item.id}">↗</button>
+      <button class="social-btn${liked ? ' active' : ''}" data-like-type="${type}" data-like-id="${item.id}" aria-label="喜欢" title="喜欢">${renderActionIcon('like', liked)}</button>
+      <button class="social-btn${favorite ? ' active' : ''}" data-favorite-type="${type}" data-favorite-id="${item.id}" aria-label="收藏" title="收藏">${renderActionIcon('favorite', favorite)}</button>
+      <button class="social-btn" data-share-type="${type}" data-share-id="${item.id}" aria-label="分享" title="分享">${renderActionIcon('share', false)}</button>
     </div>`;
   }
 
