@@ -1442,3 +1442,19 @@ ul { list-style: none; }
   .viewer-nav-prev { left: 28px; }
   .viewer-nav-next { right: 28px; }
 }
+
+/* Tinder-style detail cards */
+.img-viewer-swipe { position: relative; isolation: isolate; }
+.img-viewer-page {
+  position: absolute; inset: 0; width: 100%;
+  display: none; will-change: transform, opacity;
+  transform-origin: 50% 82%;
+  transition: transform .28s cubic-bezier(.2,.75,.25,1), opacity .22s ease;
+}
+.img-viewer-page.is-current { display: block; z-index: 2; transform: translate3d(0,0,0); opacity: 1; }
+.img-viewer-page.is-next { display: block; z-index: 1; transform: scale(.94); opacity: .72; pointer-events: none; }
+.img-viewer-page.is-flying { pointer-events: none; }
+.img-viewer-swipe.is-dragging .img-viewer-page { transition: none; }
+.img-viewer-swipe.is-dragging { cursor: grabbing; }
+@media (hover: hover) { .img-viewer-swipe { cursor: grab; } }
+@media (prefers-reduced-motion: reduce) { .img-viewer-page { transition-duration: .01ms; } }

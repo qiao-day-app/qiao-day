@@ -996,6 +996,56 @@ window.addEventListener('unhandledrejection', function(e) {
   let viewerTouchStartY = 0;
   let viewerSwipeLocked = null; // 'h' | 'v' | null
   let viewerType = 'story';
+  let viewerAnimating = false;
+
+  function updateViewerCardStack() {
+    const pages = Array.from($('#imgViewerSwipe')?.querySelectorAll('.img-viewer-page') || []);
+    const nextIndex = viewerItems.length ? (viewerIndex + 1) % viewerItems.length : -1;
+    pages.forEach((page, index) => {
+      page.classList.toggle('is-current', index === viewerIndex);
+      page.classList.toggle('is-next', index === nextIndex && index !== viewerIndex);
+      page.classList.remove('is-flying');
+      page.style.transform = '';
+      page.style.opacity = '';
+      if (index === viewerIndex) page.scrollTop = 0;
+    });
+  }
+
+  function moveViewerCard(dx) {
+    const current = $('#imgViewerSwipe')?.querySelector('.img-viewer-page.is-current');
+    const nextCard = $('#imgViewerSwipe')?.querySelector('.img-viewer-page.is-next');
+    if (!current) return;
+    const rotation = Math.max(-8, Math.min(8, dx / 24));
+    current.style.transform = `translate3d(${dx}px,0,0) rotate(${rotation}deg)`;
+    if (nextCard) {
+      const progress = Math.min(1, Math.abs(dx) / 180);
+      nextCard.style.transform = `scale(${0.94 + progress * 0.06})`;
+      nextCard.style.opacity = String(0.72 + progress * 0.28);
+    }
+  }
+
+  function releaseViewerCard(dx, advance) {
+    const current = $('#imgViewerSwipe')?.querySelector('.img-viewer-page.is-current');
+    if (!current || viewerAnimating) return;
+    if (!advance) {
+      current.style.transform = '';
+      const nextCard = $('#imgViewerSwipe')?.querySelector('.img-viewer-page.is-next');
+      if (nextCard) { nextCard.style.transform = ''; nextCard.style.opacity = ''; }
+      return;
+    }
+    viewerAnimating = true;
+    const direction = dx < 0 ? -1 : 1;
+    current.classList.add('is-flying');
+    current.style.transform = `translate3d(${direction * Math.max(window.innerWidth, 720)}px,0,0) rotate(${direction * 14}deg)`;
+    current.style.opacity = '0';
+    setTimeout(() => {
+      viewerIndex = (viewerIndex + 1) % viewerItems.length;
+      updateViewerCardStack();
+      updateViewerInfo($('#imgViewerInfo'), viewerItems.length);
+      $('#viewerSwipeHint')?.classList.remove('show');
+      viewerAnimating = false;
+    }, 280);
+  }
 
   function openContentViewer(type, items, startIndex) {
     if (!items || items.length === 0) return;
@@ -1047,25 +1097,19 @@ window.addEventListener('unhandledrejection', function(e) {
     if (canNavigate) window.__viewerHintTimer = setTimeout(() => hint.classList.remove('show'), 3200);
 
     // 滚动到起始页
-    swipe.scrollLeft = viewerIndex * swipe.clientWidth;
+    updateViewerCardStack();
     prev.onclick = () => navigateViewer(-1);
     next.onclick = () => navigateViewer(1);
 
     // 绑定事件
-    swipe.onscroll = () => {
-      const pageW = swipe.clientWidth;
-      const idx = Math.round(swipe.scrollLeft / pageW);
-      if (idx !== viewerIndex) {
-        viewerIndex = Math.max(0, Math.min(items.length - 1, idx));
-        updateViewerInfo(info, items.length);
-      }
-    };
+    swipe.onscroll = null;
 
     // 触摸滑动
     swipe.ontouchstart = (e) => {
       viewerTouchStartX = e.touches[0].clientX;
       viewerTouchStartY = e.touches[0].clientY;
       viewerSwipeLocked = null;
+      swipe.classList.add('is-dragging');
     };
     swipe.ontouchmove = (e) => {
       if (viewerSwipeLocked === 'v') return;
@@ -1076,6 +1120,7 @@ window.addEventListener('unhandledrejection', function(e) {
       }
       if (viewerSwipeLocked === 'h') {
         e.preventDefault();
+        moveViewerCard(e.touches[0].clientX - viewerTouchStartX);
       }
     };
     swipe.ontouchend = (e) => {
@@ -1083,14 +1128,30 @@ window.addEventListener('unhandledrejection', function(e) {
       if (!touch) return;
       const dx = touch.clientX - viewerTouchStartX;
       const dy = touch.clientY - viewerTouchStartY;
-      if (Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy)) navigateViewer(dx < 0 ? 1 : -1);
+      swipe.classList.remove('is-dragging');
+      releaseViewerCard(dx, Math.abs(dx) >= 72 && Math.abs(dx) > Math.abs(dy));
     };
     let mouseStartX = null;
-    swipe.onpointerdown = (e) => { if (e.pointerType === 'mouse') mouseStartX = e.clientX; };
+    swipe.onpointerdown = (e) => {
+      if (e.pointerType !== 'mouse' || viewerAnimating) return;
+      mouseStartX = e.clientX;
+      swipe.classList.add('is-dragging');
+    };
+    swipe.onpointermove = (e) => {
+      if (mouseStartX === null) return;
+      moveViewerCard(e.clientX - mouseStartX);
+    };
     swipe.onpointerup = (e) => {
       if (mouseStartX === null) return;
       const dx = e.clientX - mouseStartX; mouseStartX = null;
-      if (Math.abs(dx) >= 70) navigateViewer(dx < 0 ? 1 : -1);
+      swipe.classList.remove('is-dragging');
+      releaseViewerCard(dx, Math.abs(dx) >= 90);
+    };
+    swipe.onpointerleave = (e) => {
+      if (mouseStartX === null) return;
+      const dx = e.clientX - mouseStartX; mouseStartX = null;
+      swipe.classList.remove('is-dragging');
+      releaseViewerCard(dx, Math.abs(dx) >= 90);
     };
     viewer.tabIndex = -1;
     viewer.focus({ preventScroll: true });
@@ -1104,10 +1165,7 @@ window.addEventListener('unhandledrejection', function(e) {
   function navigateViewer(direction) {
     if (viewerItems.length < 2) return;
     viewerIndex = (viewerIndex + direction + viewerItems.length) % viewerItems.length;
-    const swipe = $('#imgViewerSwipe');
-    const page = swipe.querySelectorAll('.img-viewer-page')[viewerIndex];
-    if (page) page.scrollTop = 0;
-    swipe.scrollTo({ left: viewerIndex * swipe.clientWidth, behavior: 'smooth' });
+    updateViewerCardStack();
     updateViewerInfo($('#imgViewerInfo'), viewerItems.length);
     $('#viewerSwipeHint')?.classList.remove('show');
   }
