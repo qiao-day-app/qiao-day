@@ -425,7 +425,7 @@ window.addEventListener('unhandledrejection', function(e) {
           <div class="story-carousel-track" id="storyTrack">
             ${items.slice(0, 6).map((it) => `
               <div class="story-carousel-item">
-                ${it.image ? `<img src="${it.image}" alt="">` : '<div style="font-size:80px;">🐶</div>'}
+                ${it.image ? `<img src="${it.image}" alt="" loading="lazy" decoding="async">` : '<div style="font-size:80px;">🐶</div>'}
                 <div class="story-caption">
                   ${escape(it.title || '')}
                   <small>${fmtDateShort(it.date || Date.now())}</small>
@@ -451,14 +451,14 @@ window.addEventListener('unhandledrejection', function(e) {
           <span>小故事</span>
         </div>
         <div class="story-hero-illust">
-          <img src="${escape(state.story.avatar || 'assets/qiaoqiao-avatar.jpg')}" alt="瞧瞧头像">
+          <img src="${escape(state.story.avatar || 'assets/qiaoqiao-avatar.jpg')}" alt="瞧瞧头像" loading="eager" decoding="async" fetchpriority="high">
           ${isAdmin ? '<button class="avatar-edit-btn" data-action="edit-story-avatar">更换头像</button>' : ''}
         </div>
       </div>
 
       <div class="story-quick">
         <div class="story-quick-img">
-          ${quickImg ? `<img src="${quickImg}" alt="">` : '📖'}
+          ${quickImg ? `<img src="${quickImg}" alt="" loading="eager" decoding="async">` : '📖'}
         </div>
         <div class="story-quick-info">
           <div class="story-quick-name">${escape(state.story.quick.name)}</div>
@@ -485,7 +485,7 @@ window.addEventListener('unhandledrejection', function(e) {
           <div class="story-card" data-story-id="${it.id}">
             ${isAdmin ? `<button class="delete-btn" data-del-story="${it.id}">×</button>` : ''}
             <div class="story-card-img">
-              ${it.image ? `<img src="${it.image}" alt="">` : '🐶'}
+              ${it.image ? `<img src="${it.image}" alt="" loading="lazy" decoding="async">` : '🐶'}
             </div>
             <div class="story-card-body">
               <div class="story-card-title">${escape(it.title || '无题')}</div>
@@ -506,7 +506,7 @@ window.addEventListener('unhandledrejection', function(e) {
     const items = state.outfit.items || [];
     const bannerHtml = `<div class="outfit-banner" id="outfitBanner">
         <div class="outfit-banner-img-wrap">
-          <img class="outfit-banner-img" src="assets/banner.jpg" alt="狗澜之家">
+          <img class="outfit-banner-img" src="assets/banner.jpg" alt="狗澜之家" loading="eager" decoding="async" fetchpriority="high">
         </div>
         <div class="outfit-banner-text">狗澜之家，瞧儿的衣柜</div>
       </div>`;
@@ -527,7 +527,7 @@ window.addEventListener('unhandledrejection', function(e) {
               <button class="delete-btn" data-del-outfit="${it.id}">×</button>
             ` : ''}
             <div class="outfit-card-img">
-              ${it.image ? `<img src="${it.image}" alt="">` : '👕'}
+              ${it.image ? `<img src="${it.image}" alt="" loading="lazy" decoding="async">` : '👕'}
             </div>
             <div class="outfit-card-body">
               <div class="outfit-card-name">${escape(it.name)}</div>
@@ -564,7 +564,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <div class="shop-section-title">${escape(tabs[activeTab] || '')}</div>
         ${hero && hero.image ? `
           <div class="shop-hero">
-            <img src="${hero.image}" alt="">
+          <img src="${hero.image}" alt="" loading="eager" decoding="async" fetchpriority="high">
           </div>
         ` : `
           <div class="shop-hero" style="background:#f5ead2;">${isAdmin ? '点击添加主图' : '🛍️'}</div>
@@ -589,7 +589,7 @@ window.addEventListener('unhandledrejection', function(e) {
               <button class="edit-btn" data-edit-shop="${it.id}">✎</button>
               <button class="delete-btn" data-del-shop="${it.id}">×</button>
             ` : ''}
-            ${it.image ? `<img src="${it.image}" alt="">` : '🎁'}
+              ${it.image ? `<img src="${it.image}" alt="" loading="lazy" decoding="async">` : '🎁'}
             <div class="shop-item-info">
               <div class="shop-item-name">${escape(it.name)}</div>
               <div class="shop-item-price">${it.fileUrl ? '仅 PC Windows 版' : (it.price ? '¥' + it.price : '敬请期待')}</div>
@@ -849,7 +849,7 @@ window.addEventListener('unhandledrejection', function(e) {
     swipe.innerHTML = items.map((it, i) => {
       const isComic = it.type === 'comic';
       return `<div class="img-viewer-page ${isComic ? 'scrollable' : 'fit'}" data-viewer-idx="${i}">
-        <img src="${it.image || ''}" alt="${escape(it.title || '')}" draggable="false">
+          <img src="${it.image || ''}" alt="${escape(it.title || '')}" draggable="false" loading="eager" decoding="async">
       </div>`;
     }).join('');
 
@@ -1489,7 +1489,7 @@ window.addEventListener('unhandledrejection', function(e) {
           itemName = shopMap[ord.id].name; itemImage = shopMap[ord.id].image;
         }
         return '<div class="order-item"><div class="order-item-img">' +
-          (itemImage ? '<img src="' + itemImage + '" alt="">' : '🛒') + '</div>' +
+        (itemImage ? '<img src="' + itemImage + '" alt="" loading="lazy" decoding="async">' : '🛒') + '</div>' +
           '<div class="order-item-info"><div class="order-item-name">' + escape(itemName || '已下架') + '</div>' +
           '<div class="order-item-time">' + fmtDate(ord.time) + ' · ' + (ord.type === 'outfit' ? '穿搭' : '周边') + '</div></div></div>';
       }).filter(Boolean).join('');
