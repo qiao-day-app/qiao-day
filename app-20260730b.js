@@ -1092,14 +1092,19 @@ window.addEventListener('unhandledrejection', function(e) {
     const canNavigate = items.length > 1;
     prev.classList.toggle('show', canNavigate);
     next.classList.toggle('show', canNavigate);
-    hint.classList.toggle('show', canNavigate);
+    let showGesture = canNavigate;
+    try {
+      showGesture = canNavigate && sessionStorage.getItem('qiao_viewer_gesture_seen') !== '1';
+      if (showGesture) sessionStorage.setItem('qiao_viewer_gesture_seen', '1');
+    } catch (_) {}
+    hint.classList.toggle('show', showGesture);
     clearTimeout(window.__viewerHintTimer);
-    if (canNavigate) window.__viewerHintTimer = setTimeout(() => hint.classList.remove('show'), 3200);
+    if (showGesture) window.__viewerHintTimer = setTimeout(() => hint.classList.remove('show'), 3200);
 
     // 滚动到起始页
     updateViewerCardStack();
-    prev.onclick = () => navigateViewer(-1);
-    next.onclick = () => navigateViewer(1);
+    prev.onclick = null;
+    next.onclick = null;
 
     // 绑定事件
     swipe.onscroll = null;
