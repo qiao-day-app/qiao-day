@@ -1370,6 +1370,7 @@ ul { list-style: none; }
 .comment-board .story-section-title { padding-top: 18px; }
 .comment-form { padding: 0 18px 18px; display: grid; gap: 10px; }
 .comment-form small { color: #999; text-align: center; }
+.comment-form .btn-primary:disabled { opacity: .55; cursor: wait; }
 .comment-list { padding: 0 18px 8px; }
 .comment-item { padding: 14px 0; border-top: 1px solid #f5f1ea; }
 .comment-item p { margin: 5px 0; line-height: 1.7; color: #555; white-space: pre-wrap; }

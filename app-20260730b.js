@@ -771,12 +771,12 @@ window.addEventListener('unhandledrejection', function(e) {
 
       <section class="comment-board">
         <div class="story-section-title">留言板 <small>${comments.length} 条公开留言</small></div>
-        <div class="comment-form">
+        <form class="comment-form" id="commentForm">
           <input class="form-input" id="commentName" maxlength="30" placeholder="你的昵称" value="${escape(nickname)}">
           <textarea class="form-textarea" id="commentContent" maxlength="300" placeholder="给瞧瞧留句话吧"></textarea>
-          <button class="btn-primary" id="commentSubmit">提交留言</button>
+          <button class="btn-primary" id="commentSubmit" type="submit">提交留言</button>
           <small>留言经管理员审核后公开显示</small>
-        </div>
+        </form>
         <div class="comment-list">${comments.length ? comments.map(comment => `<div class="comment-item"><strong>${escape(comment.name)}</strong><p>${escape(comment.content)}</p><small>${fmtDate(comment.createdAt)}</small></div>`).join('') : '<div class="order-empty">还没有公开留言</div>'}</div>
       </section>
 
@@ -853,6 +853,12 @@ window.addEventListener('unhandledrejection', function(e) {
 
     // 删除/编辑按钮（事件委托）
     const main = $('#main');
+    main.onsubmit = (e) => {
+      if (e.target && e.target.id === 'commentForm') {
+        e.preventDefault();
+        submitComment(e);
+      }
+    };
     main.onclick = (e) => {
       const t = e.target;
       const likeButton = t.closest('[data-like-id]');
@@ -1758,15 +1764,25 @@ window.addEventListener('unhandledrejection', function(e) {
     if ($('#imgViewer')?.classList.contains('show')) openContentViewer(viewerType, viewerItems, viewerIndex);
   }
 
-  async function submitComment() {
+  async function submitComment(event) {
+    if (event) event.preventDefault();
     const name = ($('#commentName')?.value || '').trim();
     const content = ($('#commentContent')?.value || '').trim();
     if (!name || !content) return toast('请填写昵称和留言');
+    const button = $('#commentSubmit');
+    if (button?.disabled) return;
+    if (button) { button.disabled = true; button.textContent = '提交中…'; }
     try {
       await apiCall('POST', '/api/comments', { name, content });
+      state.visitor.nickname = name;
+      saveLocalVisitor();
       $('#commentContent').value = '';
       toast('留言已提交，审核通过后显示', 3500);
-    } catch (e) { toast(e.message || '留言提交失败'); }
+    } catch (e) {
+      toast(e.message || '留言提交失败');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = '提交留言'; }
+    }
   }
 
   async function showAdminComments() {
@@ -1981,8 +1997,6 @@ window.addEventListener('unhandledrejection', function(e) {
       toast(e.message || '备份失败，请稍后重试', 4000);
     }
 
-    const commentSubmit = $('#commentSubmit');
-    if (commentSubmit) commentSubmit.onclick = submitComment;
   }
 
   async function importData() {
