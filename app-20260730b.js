@@ -396,7 +396,7 @@ window.addEventListener('unhandledrejection', function(e) {
           <span>小故事</span>
         </div>
         <div class="story-hero-illust">
-          ${heroImg ? `<img src="${heroImg}" alt="">` : '🐶'}
+          <img src="assets/qiaoqiao-avatar.jpg" alt="白博美瞧瞧">
         </div>
       </div>
 
