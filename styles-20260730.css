@@ -1139,20 +1139,18 @@ ul { list-style: none; }
   top: max(14px, env(safe-area-inset-top));
   left: 14px;
   right: auto;
-  width: auto;
-  height: 40px;
-  padding: 0 16px 0 12px;
-  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  padding: 0 0 3px;
+  border-radius: 50%;
   background: #1a1a1a;
   color: #fff;
   font-size: 27px;
   font-weight: 700;
   display: none;
   align-items: center;
-  gap: 4px;
   box-shadow: 0 5px 18px rgba(0,0,0,.25);
 }
-.img-viewer-close span { font-size: 13px; font-weight: 600; }
 .img-viewer.show .img-viewer-close { display: flex; }
 .img-viewer-swipe {
   width: 100%;
@@ -1161,6 +1159,7 @@ ul { list-style: none; }
   scroll-snap-type: x mandatory;
   padding-top: calc(66px + env(safe-area-inset-top));
   scrollbar-width: none;
+  touch-action: auto;
 }
 .img-viewer-swipe::-webkit-scrollbar { display: none; }
 .img-viewer-page {
@@ -1170,6 +1169,8 @@ ul { list-style: none; }
   scroll-snap-align: start;
   background: #fbf8f3;
   padding: 0 16px 70px;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
 }
 .content-detail { width: 100%; max-width: 920px; margin: 0 auto; }
 .content-detail-image {
@@ -1181,6 +1182,8 @@ ul { list-style: none; }
 .content-detail-image img { width: 100%; max-width: 100%; max-height: 68vh; object-fit: contain; }
 .content-detail-image.comic { max-height: none; align-items: flex-start; }
 .content-detail-image.comic img { max-height: none; height: auto; }
+.content-detail-image.story-long { max-height: none; height: auto; overflow: visible; align-items: flex-start; }
+.content-detail-image.story-long img { width: 100%; height: auto; max-height: none; object-fit: contain; }
 .detail-image-empty { font-size: 100px; padding: 80px; }
 .content-detail-body { padding: 24px 4px 36px; }
 .content-detail-type { color: #b07831; font-size: 12px; font-weight: 700; margin-bottom: 7px; }
@@ -1203,7 +1206,7 @@ ul { list-style: none; }
   .content-detail-body { padding-top: 32px; position: sticky; top: 0; }
   .content-detail-image { max-height: calc(100vh - 150px); }
   .content-detail-image img { max-height: calc(100vh - 150px); }
-  .content-detail-image.comic { max-height: none; }
+  .content-detail-image.comic, .content-detail-image.story-long { max-height: none; }
 }
 
 /* ========== 全屏图片查看器 ========== */
@@ -1374,4 +1377,34 @@ ul { list-style: none; }
   .today-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-left: 0; padding-right: 0; }
   .popular-list { margin-left: 0; margin-right: 0; }
   .comment-board { margin-left: 0; margin-right: 0; }
+}
+
+/* 详情页最终覆盖：必须位于旧查看器规则之后 */
+.img-viewer { background: #fbf8f3; color: #1a1a1a; }
+.img-viewer-close {
+  top: max(14px, env(safe-area-inset-top)); left: 14px; right: auto;
+  width: 44px; height: 44px; padding: 0 0 3px; border-radius: 50%;
+  background: #1a1a1a; color: #fff; font-size: 27px; line-height: 1;
+  align-items: center; justify-content: center; box-shadow: 0 5px 18px rgba(0,0,0,.25);
+}
+.img-viewer.show .img-viewer-close { display: flex; }
+.img-viewer-swipe {
+  width: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+  padding-top: calc(66px + env(safe-area-inset-top)); touch-action: auto;
+}
+.img-viewer-page {
+  height: 100%; align-items: flex-start; justify-content: flex-start;
+  overflow-y: auto; overflow-x: hidden; scroll-snap-align: start;
+  background: #fbf8f3; padding: 0 16px 70px; touch-action: pan-y;
+  -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+}
+.content-detail-image.story-long { max-height: none; height: auto; overflow: visible; align-items: flex-start; }
+.content-detail-image.story-long img { width: 100%; height: auto; max-height: none; object-fit: contain; }
+.img-viewer-info {
+  position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%); z-index: 2010; width: auto; height: 34px;
+  padding: 0 14px; border-radius: 999px; background: rgba(26,26,26,.82); color: #fff;
+}
+@media (min-width: 900px) {
+  .img-viewer-page { padding-left: 80px; padding-right: 80px; }
 }
