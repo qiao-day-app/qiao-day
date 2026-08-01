@@ -536,7 +536,7 @@ window.addEventListener('unhandledrejection', function(e) {
             ${it.image ? `<img src="${it.image}" alt="">` : '🎁'}
             <div class="shop-item-info">
               <div class="shop-item-name">${escape(it.name)}</div>
-              <div class="shop-item-price">${it.price ? '¥' + it.price : '敬请期待'}</div>
+              <div class="shop-item-price">${it.fileUrl ? '仅 PC Windows 版' : (it.price ? '¥' + it.price : '敬请期待')}</div>
               ${it.fileUrl ? `<a href="${escape(it.fileUrl)}" download="${escape(it.fileName || '电子瞧瞧.zip')}" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:7px 10px;border-radius:16px;background:#333;color:#fff;text-align:center;font-size:12px;text-decoration:none;">⬇ 下载桌宠</a>` : ''}
             </div>
           </div>
