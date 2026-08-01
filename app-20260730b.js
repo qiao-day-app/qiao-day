@@ -175,7 +175,7 @@ window.addEventListener('unhandledrejection', function(e) {
   let state = null;
   let isAdmin = false;
   let useServer = true;
-  let currentTab = 'story';
+  let currentTab = 'home';
   let isLoading = false;
   const INTERACTION_KEY = 'qiaoday_interactions_v1';
   const SCROLL_KEY = 'qiaoday_scroll_positions_v1';
@@ -400,8 +400,8 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // ========== 路由 ==========
   function switchTab(tab) {
-    const validTabs = ['story', 'outfit', 'shop', 'me'];
-    if (!validTabs.includes(tab)) tab = 'story';
+    const validTabs = ['home', 'story', 'outfit', 'shop', 'me'];
+    if (!validTabs.includes(tab)) tab = 'home';
     const main = $('#main');
     if (main && currentTab) {
       scrollPositions[currentTab] = main.scrollTop;
@@ -416,8 +416,12 @@ window.addEventListener('unhandledrejection', function(e) {
     const topBar = $('#topBar');
     const topTitle = $('#topTitle');
     const topSub = $('#topSub');
-    if (tab === 'story') {
+    if (tab === 'home') {
       topBar.classList.remove('show');
+    } else if (tab === 'story') {
+      topBar.classList.add('show');
+      topTitle.textContent = '瞧瞧小故事';
+      topSub.textContent = '照片与漫画 ·';
     } else if (tab === 'outfit') {
       topBar.classList.add('show');
       topTitle.textContent = '日常穿搭 · 风格随意';
@@ -443,7 +447,8 @@ window.addEventListener('unhandledrejection', function(e) {
     try {
       const main = $('#main');
       const restoreTop = Number(scrollPositions[currentTab] || 0);
-      if (currentTab === 'story') main.innerHTML = renderStory();
+      if (currentTab === 'home') main.innerHTML = renderHome();
+      else if (currentTab === 'story') main.innerHTML = renderStory();
       else if (currentTab === 'outfit') main.innerHTML = renderOutfit();
       else if (currentTab === 'shop') main.innerHTML = renderShop();
       else if (currentTab === 'me') main.innerHTML = renderMe();
@@ -547,7 +552,7 @@ window.addEventListener('unhandledrejection', function(e) {
   }
 
   // ========== 小故事页 ==========
-  function renderStory() {
+  function renderHome() {
     const items = state.story.items || [];
     const hasItems = items.length > 0;
     const quickImg = items[0]?.image;
@@ -614,10 +619,21 @@ window.addEventListener('unhandledrejection', function(e) {
 
       ${heroHtml}
 
-      <div class="story-section-title" style="padding-top:8px;">
-        全部故事
+      ${renderHomeCommentBoard()}
+    `;
+  }
+
+  function renderStory() {
+    const items = state.story.items || [];
+    return `
+      <div class="story-page-head">
+        <div>
+          <h1>瞧瞧小故事</h1>
+          <p>照片、漫画，还有每一个值得收藏的小瞬间</p>
+        </div>
+        <span>${items.length} 个故事</span>
       </div>
-      <div class="story-grid">
+      <div class="story-grid story-page-grid">
         ${items.length === 0 ? '<div class="order-empty" style="grid-column:1/-1;">还没有故事，去上传第一张瞧瞧吧 🐾</div>' : ''}
         ${items.map((it) => `
           <div class="story-card" data-story-id="${it.id}">
@@ -634,9 +650,6 @@ window.addEventListener('unhandledrejection', function(e) {
           </div>
         `).join('')}
       </div>
-
-      ${renderHomeCommentBoard()}
-
       <div class="btn-row">
         <button class="btn-primary" data-action="upload-story" style="flex:1;">${isAdmin ? '上传新故事' : '提交我的故事'}</button>
       </div>
@@ -2107,7 +2120,7 @@ window.addEventListener('unhandledrejection', function(e) {
       updateClock();
       try { setInterval(updateClock, 30000); } catch (e) {}
       const savedUi = loadUiState();
-      const savedTab = ['story', 'outfit', 'shop', 'me'].includes(savedUi.tab) ? savedUi.tab : 'story';
+      const savedTab = ['home', 'story', 'outfit', 'shop', 'me'].includes(savedUi.tab) ? savedUi.tab : 'home';
       currentTab = savedTab;
       if (savedTab === 'shop' && state?.shop) {
         const savedShopTab = Number(savedUi.shopTab);

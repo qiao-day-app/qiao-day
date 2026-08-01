@@ -132,6 +132,16 @@ ul { list-style: none; }
 .tab-item.active .tab-icon { transform: scale(1.06); }
 .tab-item.active .tab-icon svg { stroke-width: 2; }
 
+.story-page-head {
+  padding: 28px 20px 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px;
+}
+.story-page-head h1 { margin: 0 0 7px; font-size: 25px; line-height: 1.2; }
+.story-page-head p { margin: 0; color: #888; font-size: 13px; line-height: 1.6; }
+.story-page-head > span {
+  flex: none; padding: 6px 10px; border-radius: 999px; background: #f1e3d0; color: #6b4e2e; font-size: 11px;
+}
+.story-page-grid { padding-top: 0; }
+
 /* ========== 首页（小故事） ========== */
 .story-hero {
   padding: 40px 30px 30px;
@@ -1005,6 +1015,8 @@ ul { list-style: none; }
   .tab-item:hover { background: #f8f1e8; transform: translateY(-1px); }
   .tab-item.active { background: #f1e3d0; color: #3f2d1d; }
   .tab-item .tab-icon { width: 27px; height: 27px; }
+  .story-page-head { padding: 34px 34px 22px; }
+  .story-page-head h1 { font-size: 31px; }
 
   .top-bar {
     margin-left: 112px;
