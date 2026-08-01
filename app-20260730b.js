@@ -1000,6 +1000,9 @@ window.addEventListener('unhandledrejection', function(e) {
     const viewer = $('#imgViewer');
     const swipe = $('#imgViewerSwipe');
     const info = $('#imgViewerInfo');
+    const prev = $('#viewerPrev');
+    const next = $('#viewerNext');
+    const hint = $('#viewerSwipeHint');
 
     const typeNames = { story: '瞧瞧故事', outfit: '瞧瞧穿搭', shop: '瞧瞧好物' };
     swipe.innerHTML = items.map((it, i) => {
@@ -1009,7 +1012,7 @@ window.addEventListener('unhandledrejection', function(e) {
       return `<div class="img-viewer-page" data-viewer-idx="${i}">
         <article class="content-detail">
           <div class="content-detail-image ${isComic ? 'comic' : ''} ${type === 'story' ? 'story-long' : ''}">
-            ${it.image ? `<img src="${it.image}" alt="${escape(title)}" draggable="false" loading="eager" decoding="async">` : '<div class="detail-image-empty">🐶</div>'}
+            ${it.image ? `<img src="${it.image}" alt="${escape(title)}" draggable="false" loading="${i === viewerIndex ? 'eager' : 'lazy'}" decoding="async">` : '<div class="detail-image-empty">🐶</div>'}
           </div>
           <div class="content-detail-body">
             <div class="content-detail-type">${typeNames[type] || '瞧的一天'}</div>
@@ -1030,9 +1033,17 @@ window.addEventListener('unhandledrejection', function(e) {
     // 显示（先显示才能获取正确的 clientWidth）
     viewer.classList.add('show');
     document.body.style.overflow = 'hidden';
+    const canNavigate = items.length > 1;
+    prev.classList.toggle('show', canNavigate);
+    next.classList.toggle('show', canNavigate);
+    hint.classList.toggle('show', canNavigate);
+    clearTimeout(window.__viewerHintTimer);
+    if (canNavigate) window.__viewerHintTimer = setTimeout(() => hint.classList.remove('show'), 3200);
 
     // 滚动到起始页
     swipe.scrollLeft = viewerIndex * swipe.clientWidth;
+    prev.onclick = () => navigateViewer(-1);
+    next.onclick = () => navigateViewer(1);
 
     // 绑定事件
     swipe.onscroll = () => {
@@ -1061,6 +1072,38 @@ window.addEventListener('unhandledrejection', function(e) {
         e.preventDefault();
       }
     };
+    swipe.ontouchend = (e) => {
+      const touch = e.changedTouches && e.changedTouches[0];
+      if (!touch) return;
+      const dx = touch.clientX - viewerTouchStartX;
+      const dy = touch.clientY - viewerTouchStartY;
+      if (Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy)) navigateViewer(dx < 0 ? 1 : -1);
+    };
+    let mouseStartX = null;
+    swipe.onpointerdown = (e) => { if (e.pointerType === 'mouse') mouseStartX = e.clientX; };
+    swipe.onpointerup = (e) => {
+      if (mouseStartX === null) return;
+      const dx = e.clientX - mouseStartX; mouseStartX = null;
+      if (Math.abs(dx) >= 70) navigateViewer(dx < 0 ? 1 : -1);
+    };
+    viewer.tabIndex = -1;
+    viewer.focus({ preventScroll: true });
+    viewer.onkeydown = (e) => {
+      if (e.key === 'ArrowLeft') navigateViewer(-1);
+      if (e.key === 'ArrowRight') navigateViewer(1);
+      if (e.key === 'Escape') closeImageViewer();
+    };
+  }
+
+  function navigateViewer(direction) {
+    if (viewerItems.length < 2) return;
+    viewerIndex = (viewerIndex + direction + viewerItems.length) % viewerItems.length;
+    const swipe = $('#imgViewerSwipe');
+    const page = swipe.querySelectorAll('.img-viewer-page')[viewerIndex];
+    if (page) page.scrollTop = 0;
+    swipe.scrollTo({ left: viewerIndex * swipe.clientWidth, behavior: 'smooth' });
+    updateViewerInfo($('#imgViewerInfo'), viewerItems.length);
+    $('#viewerSwipeHint')?.classList.remove('show');
   }
 
   function openImageViewer(items, startIndex) {
