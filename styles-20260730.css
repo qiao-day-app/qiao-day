@@ -1074,7 +1074,13 @@ ul { list-style: none; }
   .shop-tab { padding: 17px 0; font-size: 15px; }
   .shop-section { padding: 30px 0 18px; }
   .shop-section-title { font-size: 25px; }
-  .shop-hero { aspect-ratio: 16/5; max-height: 360px; border-radius: 24px; }
+  .shop-hero {
+    aspect-ratio: 16/5;
+    max-height: 360px;
+    border-radius: 24px;
+    background: #f5ead2;
+  }
+  .shop-hero img { object-fit: contain; }
   .shop-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; padding: 0 0 34px; }
   .shop-item { border-radius: 18px; box-shadow: 0 8px 24px rgba(90,58,26,0.08); }
   .shop-item-name { font-size: 15px; }
