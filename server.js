@@ -34,7 +34,8 @@ const DEFAULT_DATA = {
   adminToken: crypto.randomBytes(16).toString('hex'),
   story: { avatar: 'assets/qiaoqiao-avatar.jpg', quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
   outfit: { items: [] },
-  shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] }
+  shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] },
+  comments: []
 };
 
 // ---- 读写数据 ----
@@ -272,7 +273,60 @@ app.get('/api/data', asyncRoute(async (req, res) => {
   const data = await readData();
   const public = JSON.parse(JSON.stringify(data));
   delete public.adminToken;
+  delete public.adminPassword;
+  public.comments = (public.comments || []).filter(comment => comment.status === 'approved');
   res.json(public);
+}));
+
+function findContentItem(data, type, id) {
+  const groups = { story: data.story && data.story.items, outfit: data.outfit && data.outfit.items, shop: data.shop && data.shop.items };
+  const items = groups[type];
+  return Array.isArray(items) ? items.find(item => item.id === id) : null;
+}
+
+// 公开：点赞或取消点赞（客户端负责记录本机是否点过）
+app.post('/api/likes', asyncRoute(async (req, res) => {
+  const { type, id, delta } = req.body || {};
+  if (!['story', 'outfit', 'shop'].includes(type) || !id || ![-1, 1].includes(Number(delta))) {
+    return res.status(400).json({ error: '点赞参数不正确' });
+  }
+  const data = await readData();
+  const item = findContentItem(data, type, id);
+  if (!item) return res.status(404).json({ error: '内容不存在' });
+  item.likes = Math.max(0, Number(item.likes || 0) + Number(delta));
+  await writeData(data);
+  res.json({ ok: true, likes: item.likes });
+}));
+
+// 公开：提交留言，审核通过后才会显示
+app.post('/api/comments', asyncRoute(async (req, res) => {
+  const name = String((req.body && req.body.name) || '').trim().slice(0, 30);
+  const content = String((req.body && req.body.content) || '').trim().slice(0, 300);
+  if (!name || !content) return res.status(400).json({ error: '请填写昵称和留言内容' });
+  const data = await readData();
+  data.comments = Array.isArray(data.comments) ? data.comments : [];
+  data.comments.unshift({ id: crypto.randomUUID(), name, content, status: 'pending', createdAt: Date.now() });
+  await writeData(data);
+  res.json({ ok: true, message: '留言已提交，审核通过后显示' });
+}));
+
+app.get('/api/comments/admin', asyncRoute(requireAdmin), (req, res) => {
+  res.json({ comments: Array.isArray(req.data.comments) ? req.data.comments : [] });
+});
+
+app.patch('/api/comments/:id', asyncRoute(requireAdmin), asyncRoute(async (req, res) => {
+  const comments = Array.isArray(req.data.comments) ? req.data.comments : [];
+  const comment = comments.find(item => item.id === req.params.id);
+  if (!comment) return res.status(404).json({ error: '留言不存在' });
+  comment.status = req.body && req.body.status === 'approved' ? 'approved' : 'rejected';
+  await writeData(req.data);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/comments/:id', asyncRoute(requireAdmin), asyncRoute(async (req, res) => {
+  req.data.comments = (req.data.comments || []).filter(item => item.id !== req.params.id);
+  await writeData(req.data);
+  res.json({ ok: true });
 }));
 
 // 管理员登录（用密码生成/返回 token）

@@ -1242,3 +1242,59 @@ ul { list-style: none; }
 }
 .wake-notice.show { opacity: 1; transform: translate(-50%, 0); }
 .wake-notice.retry { pointer-events: auto; cursor: pointer; }
+
+/* 点赞、收藏与分享 */
+.social-actions { display: flex; gap: 6px; margin-top: 8px; position: relative; z-index: 3; }
+.social-btn {
+  min-width: 30px; height: 28px; padding: 0 8px;
+  border-radius: 999px; background: rgba(255,255,255,.9);
+  color: #777; border: 1px solid #eee4d8; font-size: 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+}
+.social-btn.active { color: #c93838; background: #fff0f0; border-color: #ffd0d0; }
+.shop-item .social-actions { margin-top: 6px; }
+.shop-item .social-btn { height: 24px; min-width: 26px; padding: 0 6px; background: rgba(255,255,255,.92); }
+
+/* 今日推荐与热门内容 */
+.today-section, .popular-section { padding-bottom: 8px; }
+.today-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 20px 18px; }
+.today-card { background: #fff; border-radius: 16px; overflow: hidden; padding-bottom: 10px; box-shadow: 0 5px 18px rgba(90,58,26,.07); }
+.today-card > img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #f5ead2; }
+.today-card-info { padding: 10px 10px 0; display: flex; flex-direction: column; }
+.today-card-info small { color: #c98300; font-size: 10px; }
+.today-card-info strong { font-size: 13px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-card .social-actions { padding: 0 10px; }
+.popular-list { margin: 0 20px 18px; background: #fff; border-radius: 16px; overflow: hidden; }
+.popular-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f5f1ea; }
+.popular-item:last-child { border-bottom: none; }
+.popular-item img { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; background: #f5ead2; }
+.popular-item span { flex: 1; font-weight: 600; }
+.popular-item b { color: #c93838; font-size: 12px; }
+
+/* 留言板 */
+.comment-board { margin: 0 20px 20px; background: #fff; border-radius: 16px; overflow: hidden; }
+.comment-board .story-section-title { padding-top: 18px; }
+.comment-form { padding: 0 18px 18px; display: grid; gap: 10px; }
+.comment-form small { color: #999; text-align: center; }
+.comment-list { padding: 0 18px 8px; }
+.comment-item { padding: 14px 0; border-top: 1px solid #f5f1ea; }
+.comment-item p { margin: 5px 0; line-height: 1.7; color: #555; white-space: pre-wrap; }
+.comment-item small { color: #aaa; }
+.admin-comment-item { padding: 14px 0; border-bottom: 1px solid #eee; }
+.admin-comment-item p { margin: 8px 0; white-space: pre-wrap; }
+.comment-status { margin-left: 8px; padding: 2px 7px; border-radius: 10px; font-size: 10px; background: #fff3d7; color: #9b6b00; }
+.comment-status.approved { background: #eaf7ed; color: #2e7d32; }
+.comment-status.rejected { background: #f3f3f3; color: #888; }
+.admin-comment-actions { display: flex; gap: 8px; margin-top: 10px; }
+.admin-comment-actions button { padding: 7px 12px; font-size: 12px; }
+
+/* 分享卡片 */
+.share-card-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.share-card-wrap canvas { width: min(100%, 360px); height: auto; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.share-card-wrap small { color: #999; }
+
+@media (min-width: 900px) {
+  .today-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-left: 0; padding-right: 0; }
+  .popular-list { margin-left: 0; margin-right: 0; }
+  .comment-board { margin-left: 0; margin-right: 0; }
+}

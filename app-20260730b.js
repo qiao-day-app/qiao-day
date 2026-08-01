@@ -177,13 +177,36 @@ window.addEventListener('unhandledrejection', function(e) {
   let useServer = true;
   let currentTab = 'story';
   let isLoading = false;
+  const INTERACTION_KEY = 'qiaoday_interactions_v1';
+  const SCROLL_KEY = 'qiaoday_scroll_positions_v1';
+  let interactions = loadInteractions();
+  let scrollPositions = loadScrollPositions();
 
   const DEFAULT_DATA = {
     meta: { name: '瞧瞧', createdAt: Date.now(), shareUrl: window.location.origin + '/' },
     story: { avatar: 'assets/qiaoqiao-avatar.jpg', quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
     outfit: { items: [] },
-    shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] }
+    shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] },
+    comments: []
   };
+
+  function loadInteractions() {
+    try { return JSON.parse(localStorage.getItem(INTERACTION_KEY) || '{"liked":{},"favorites":{}}'); }
+    catch (e) { return { liked: {}, favorites: {} }; }
+  }
+  function saveInteractions() {
+    localStorage.setItem(INTERACTION_KEY, JSON.stringify(interactions));
+  }
+  function interactionId(type, id) { return type + ':' + id; }
+  function isLiked(type, id) { return Boolean(interactions.liked[interactionId(type, id)]); }
+  function isFavorite(type, id) { return Boolean(interactions.favorites[interactionId(type, id)]); }
+  function loadScrollPositions() {
+    try { return JSON.parse(sessionStorage.getItem(SCROLL_KEY) || '{}'); }
+    catch (e) { return {}; }
+  }
+  function saveScrollPositions() {
+    try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify(scrollPositions)); } catch (e) {}
+  }
 
   // 带超时的 fetch
   function fetchWithTimeout(url, opts = {}, timeout = 15000) {
@@ -364,6 +387,11 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // ========== 路由 ==========
   function switchTab(tab) {
+    const main = $('#main');
+    if (main && currentTab) {
+      scrollPositions[currentTab] = main.scrollTop;
+      saveScrollPositions();
+    }
     currentTab = tab;
     $$('.tab-item').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
     // 顶部黑条显示策略
@@ -386,7 +414,10 @@ window.addEventListener('unhandledrejection', function(e) {
       topSub.textContent = isAdmin ? '⚙️ 瞧瞧后厨' : '我的瞧瞧 ›';
     }
     render();
-    $('#main').scrollTop = 0;
+    requestAnimationFrame(() => {
+      const nextMain = $('#main');
+      if (nextMain) nextMain.scrollTop = Number(scrollPositions[tab] || 0);
+    });
   }
 
   // ========== 渲染入口 ==========
@@ -409,6 +440,57 @@ window.addEventListener('unhandledrejection', function(e) {
     // 清理加载提示
     const hint = $('#loadingHint');
     if (hint) hint.remove();
+  }
+
+  function renderSocialActions(type, item) {
+    const liked = isLiked(type, item.id);
+    const favorite = isFavorite(type, item.id);
+    return `<div class="social-actions">
+      <button class="social-btn${liked ? ' active' : ''}" data-like-type="${type}" data-like-id="${item.id}">♥ <span>${Number(item.likes || 0)}</span></button>
+      <button class="social-btn${favorite ? ' active' : ''}" data-favorite-type="${type}" data-favorite-id="${item.id}">${favorite ? '★' : '☆'}</button>
+      <button class="social-btn" data-share-type="${type}" data-share-id="${item.id}">↗</button>
+    </div>`;
+  }
+
+  function dailyIndex(length, salt) {
+    if (!length) return -1;
+    const day = new Date().toISOString().slice(0, 10) + salt;
+    let hash = 0;
+    for (let i = 0; i < day.length; i++) hash = ((hash << 5) - hash + day.charCodeAt(i)) | 0;
+    return Math.abs(hash) % length;
+  }
+
+  function renderTodayQiaoqiao() {
+    const stories = state.story.items || [];
+    const outfits = state.outfit.items || [];
+    const products = state.shop.items || [];
+    const picks = [
+      { label: '今日照片', type: 'story', item: stories[dailyIndex(stories.length, 'photo')] },
+      { label: '今日故事', type: 'story', item: stories[dailyIndex(stories.length, 'story')] },
+      { label: '今日穿搭', type: 'outfit', item: outfits[dailyIndex(outfits.length, 'outfit')] },
+      { label: '今日好物', type: 'shop', item: products[dailyIndex(products.length, 'shop')] },
+    ].filter(pick => pick.item);
+    if (!picks.length) return '';
+    return `<section class="today-section"><div class="story-section-title">今日瞧瞧 <small>每天更新</small></div>
+      <div class="today-grid">${picks.map(pick => `<div class="today-card">
+        <img src="${escape(pick.item.image || state.story.avatar || '')}" alt="" loading="lazy" decoding="async">
+        <div class="today-card-info"><small>${pick.label}</small><strong>${escape(pick.item.title || pick.item.name || '瞧瞧')}</strong></div>
+        ${renderSocialActions(pick.type, pick.item)}
+      </div>`).join('')}</div></section>`;
+  }
+
+  function renderPopular() {
+    const all = [
+      ...(state.story.items || []).map(item => ({ type: 'story', item })),
+      ...(state.outfit.items || []).map(item => ({ type: 'outfit', item })),
+      ...(state.shop.items || []).map(item => ({ type: 'shop', item })),
+    ].sort((a, b) => Number(b.item.likes || 0) - Number(a.item.likes || 0)).slice(0, 3);
+    if (!all.some(entry => Number(entry.item.likes || 0) > 0)) return '';
+    return `<section class="popular-section"><div class="story-section-title">大家都喜欢 <small>热门内容</small></div>
+      <div class="popular-list">${all.map(entry => `<div class="popular-item">
+        <img src="${escape(entry.item.image || state.story.avatar || '')}" alt="" loading="lazy" decoding="async">
+        <span>${escape(entry.item.title || entry.item.name || '瞧瞧')}</span><b>♥ ${Number(entry.item.likes || 0)}</b>
+      </div>`).join('')}</div></section>`;
   }
 
   // ========== 小故事页 ==========
@@ -469,6 +551,9 @@ window.addEventListener('unhandledrejection', function(e) {
         </div>
       </div>
 
+      ${renderTodayQiaoqiao()}
+      ${renderPopular()}
+
       <div class="story-section-title">
         最新故事
         <small>${items.length} 个故事</small>
@@ -490,6 +575,7 @@ window.addEventListener('unhandledrejection', function(e) {
             <div class="story-card-body">
               <div class="story-card-title">${escape(it.title || '无题')}</div>
               <div class="story-card-date">${fmtDateShort(it.date || Date.now())}${it.type === 'comic' ? ' · 漫画' : ' · 美照'}</div>
+              ${renderSocialActions('story', it)}
             </div>
           </div>
         `).join('')}
@@ -536,6 +622,7 @@ window.addEventListener('unhandledrejection', function(e) {
                 <div class="outfit-card-price">${it.price ? '¥' + it.price : '绝赞'}</div>
                 <button class="outfit-card-btn" data-order-outfit="${it.id}">点这款</button>
               </div>
+              ${renderSocialActions('outfit', it)}
             </div>
           </div>
         `).join('')}
@@ -593,6 +680,7 @@ window.addEventListener('unhandledrejection', function(e) {
             <div class="shop-item-info">
               <div class="shop-item-name">${escape(it.name)}</div>
               <div class="shop-item-price">${it.fileUrl ? '仅 PC Windows 版' : (it.price ? '¥' + it.price : '敬请期待')}</div>
+              ${renderSocialActions('shop', it)}
               ${it.fileUrl ? `<a href="${escape(it.fileUrl)}" download="${escape(it.fileName || '电子瞧瞧.zip')}" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:7px 10px;border-radius:16px;background:#333;color:#fff;text-align:center;font-size:12px;text-decoration:none;">⬇ 下载桌宠</a>` : ''}
             </div>
           </div>
@@ -614,6 +702,8 @@ window.addEventListener('unhandledrejection', function(e) {
     const allShopOrders = (state.shop.items || []).flatMap((o) => (o.orders || []).map((ord) => ({ ...ord, shopName: o.name, shopImage: o.image })));
     const totalOrders = allOutfitOrders.length + allShopOrders.length;
     const myCount = myOrders.length;
+    const favoriteCount = Object.keys(interactions.favorites || {}).length;
+    const comments = Array.isArray(state.comments) ? state.comments : [];
 
     return `
       <div class="me-header">
@@ -635,8 +725,8 @@ window.addEventListener('unhandledrejection', function(e) {
           <div class="me-stat-label">已点穿搭</div>
         </div>
         <div class="me-stat">
-          <div class="me-stat-num">0</div>
-          <div class="me-stat-label">收藏故事</div>
+          <div class="me-stat-num">${favoriteCount}</div>
+          <div class="me-stat-label">我的收藏</div>
         </div>
         <div class="me-stat">
           <div class="me-stat-num">0.00</div>
@@ -658,7 +748,22 @@ window.addEventListener('unhandledrejection', function(e) {
         <div class="me-promo-illust">📷</div>
       </div>
 
+      <section class="comment-board">
+        <div class="story-section-title">留言板 <small>${comments.length} 条公开留言</small></div>
+        <div class="comment-form">
+          <input class="form-input" id="commentName" maxlength="30" placeholder="你的昵称" value="${escape(nickname)}">
+          <textarea class="form-textarea" id="commentContent" maxlength="300" placeholder="给瞧瞧留句话吧"></textarea>
+          <button class="btn-primary" id="commentSubmit">提交留言</button>
+          <small>留言经管理员审核后公开显示</small>
+        </div>
+        <div class="comment-list">${comments.length ? comments.map(comment => `<div class="comment-item"><strong>${escape(comment.name)}</strong><p>${escape(comment.content)}</p><small>${fmtDate(comment.createdAt)}</small></div>`).join('') : '<div class="order-empty">还没有公开留言</div>'}</div>
+      </section>
+
       <div class="me-list">
+        <div class="me-list-item" data-action="my-favorites">
+          <span>★</span> 我的收藏
+          <span class="pill">${favoriteCount}</span>
+        </div>
         <div class="me-list-item" data-action="my-orders">
           我的点单
           <span class="pill">${myCount}</span>
@@ -681,6 +786,9 @@ window.addEventListener('unhandledrejection', function(e) {
           </div>
           <div class="me-list-item" data-action="export-data">
             <span>💾</span> 导出数据
+          </div>
+          <div class="me-list-item" data-action="admin-comments">
+            <span>💬</span> 审核留言
           </div>
           <div class="me-list-item" data-action="backup-now">
             <span>☁️</span> 立即云端备份
@@ -726,6 +834,12 @@ window.addEventListener('unhandledrejection', function(e) {
     const main = $('#main');
     main.onclick = (e) => {
       const t = e.target;
+      const likeButton = t.closest('[data-like-id]');
+      if (likeButton) { toggleLike(likeButton.dataset.likeType, likeButton.dataset.likeId); return; }
+      const favoriteButton = t.closest('[data-favorite-id]');
+      if (favoriteButton) { toggleFavorite(favoriteButton.dataset.favoriteType, favoriteButton.dataset.favoriteId); return; }
+      const shareButton = t.closest('[data-share-id]');
+      if (shareButton) { createShareCard(shareButton.dataset.shareType, shareButton.dataset.shareId); return; }
       // 删除
       if (t.dataset.delStory) { handleDeleteStory(t.dataset.delStory); return; }
       if (t.dataset.delOutfit) { handleDeleteOutfit(t.dataset.delOutfit); return; }
@@ -924,7 +1038,9 @@ window.addEventListener('unhandledrejection', function(e) {
     if (action === 'exit-admin') { isAdmin = false; toast('已退出管理员'); render(); return; }
     if (action === 'share') return showShare();
     if (action === 'admin-orders') return showAllOrders();
+    if (action === 'admin-comments') return showAdminComments();
     if (action === 'my-orders') return showMyOrders();
+    if (action === 'my-favorites') return showFavorites();
     if (action === 'export-data') return exportData();
     if (action === 'backup-now') return backupNow();
     if (action === 'import-data') return importData();
@@ -1410,7 +1526,144 @@ window.addEventListener('unhandledrejection', function(e) {
     };
   }
 
-  // ========== 删除 ==========
+  function findLocalContent(type, id) {
+    const groups = { story: state.story.items, outfit: state.outfit.items, shop: state.shop.items };
+    return (groups[type] || []).find(item => item.id === id);
+  }
+
+  function showFavorites() {
+    const entries = Object.keys(interactions.favorites || {}).map(key => {
+      const split = key.indexOf(':');
+      const type = key.slice(0, split); const id = key.slice(split + 1);
+      return { type, item: findLocalContent(type, id) };
+    }).filter(entry => entry.item);
+    const html = `<div class="favorite-list">${entries.length ? entries.map(entry => `<div class="popular-item">
+      <img src="${escape(entry.item.image || state.story.avatar || '')}" alt="" loading="lazy">
+      <span>${escape(entry.item.title || entry.item.name || '瞧瞧')}</span>
+      <button class="social-btn active" data-remove-favorite="${entry.type}:${entry.item.id}">★</button>
+    </div>`).join('') : '<div class="order-empty">还没有收藏内容</div>'}</div>`;
+    const modal = showModal({ title: '我的收藏', html });
+    modal.onclick = event => {
+      const button = event.target.closest('[data-remove-favorite]');
+      if (!button) return;
+      const key = button.dataset.removeFavorite;
+      delete interactions.favorites[key]; saveInteractions(); closeModal(); render(); showFavorites();
+    };
+  }
+
+  async function toggleLike(type, id) {
+    const item = findLocalContent(type, id);
+    if (!item) return;
+    const key = interactionId(type, id);
+    const wasLiked = Boolean(interactions.liked[key]);
+    interactions.liked[key] = !wasLiked;
+    item.likes = Math.max(0, Number(item.likes || 0) + (wasLiked ? -1 : 1));
+    saveInteractions();
+    render();
+    try {
+      const result = await apiCall('POST', '/api/likes', { type, id, delta: wasLiked ? -1 : 1 });
+      item.likes = result.likes;
+    } catch (e) {
+      interactions.liked[key] = wasLiked;
+      item.likes = Math.max(0, Number(item.likes || 0) + (wasLiked ? 1 : -1));
+      saveInteractions();
+      toast('点赞失败，请稍后重试');
+    }
+    render();
+  }
+
+  function toggleFavorite(type, id) {
+    const key = interactionId(type, id);
+    interactions.favorites[key] = !interactions.favorites[key];
+    if (!interactions.favorites[key]) delete interactions.favorites[key];
+    saveInteractions();
+    toast(interactions.favorites[key] ? '已收藏到本机' : '已取消收藏');
+    render();
+  }
+
+  async function submitComment() {
+    const name = ($('#commentName')?.value || '').trim();
+    const content = ($('#commentContent')?.value || '').trim();
+    if (!name || !content) return toast('请填写昵称和留言');
+    try {
+      await apiCall('POST', '/api/comments', { name, content });
+      $('#commentContent').value = '';
+      toast('留言已提交，审核通过后显示', 3500);
+    } catch (e) { toast(e.message || '留言提交失败'); }
+  }
+
+  async function showAdminComments() {
+    try {
+      const result = await apiCall('GET', '/api/comments/admin');
+      const comments = result.comments || [];
+      const html = `<div class="admin-comment-list">${comments.length ? comments.map(comment => `
+        <div class="admin-comment-item">
+          <div><strong>${escape(comment.name)}</strong><span class="comment-status ${comment.status}">${comment.status === 'approved' ? '已公开' : comment.status === 'rejected' ? '已拒绝' : '待审核'}</span></div>
+          <p>${escape(comment.content)}</p><small>${fmtDate(comment.createdAt)}</small>
+          <div class="admin-comment-actions">
+            <button class="btn-primary" data-comment-approve="${comment.id}">通过</button>
+            <button class="btn-secondary" data-comment-reject="${comment.id}">拒绝</button>
+            <button class="btn-secondary" data-comment-delete="${comment.id}">删除</button>
+          </div>
+        </div>`).join('') : '<div class="order-empty">暂无留言</div>'}</div>`;
+      const modal = showModal({ title: '留言审核', html });
+      modal.onclick = async (event) => {
+        const button = event.target.closest('[data-comment-approve],[data-comment-reject],[data-comment-delete]');
+        if (!button) return;
+        const id = button.dataset.commentApprove || button.dataset.commentReject || button.dataset.commentDelete;
+        if (button.dataset.commentDelete) await apiCall('DELETE', '/api/comments/' + id);
+        else await apiCall('PATCH', '/api/comments/' + id, { status: button.dataset.commentApprove ? 'approved' : 'rejected' });
+        closeModal();
+        await syncFromServer();
+        showAdminComments();
+      };
+    } catch (e) { toast(e.message || '留言加载失败'); }
+  }
+
+  function loadCanvasImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+  }
+
+  async function createShareCard(type, id) {
+    const item = findLocalContent(type, id);
+    if (!item) return;
+    const title = item.title || item.name || '瞧的一天';
+    const url = state.meta.shareUrl || 'https://qiao-day-app.github.io/qiao-day/';
+    showModal({ title: '分享卡片', html: '<div class="share-card-wrap"><canvas id="shareCanvas" width="1080" height="1440"></canvas><button class="btn-primary" id="shareCardDownload">下载分享卡片</button><small>可发送到微信、朋友圈或小红书</small></div>' });
+    const canvas = $('#shareCanvas');
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#f5f1ea'; context.fillRect(0, 0, 1080, 1440);
+    context.fillStyle = '#fff'; context.beginPath(); context.roundRect(70, 70, 940, 1300, 42); context.fill();
+    try {
+      const photo = await loadCanvasImage(item.image || state.story.avatar || 'assets/qiaoqiao-avatar.jpg');
+      const ratio = Math.max(820 / photo.width, 780 / photo.height);
+      const width = photo.width * ratio, height = photo.height * ratio;
+      context.save(); context.beginPath(); context.roundRect(130, 130, 820, 780, 30); context.clip();
+      context.drawImage(photo, 540 - width / 2, 520 - height / 2, width, height); context.restore();
+    } catch (e) {}
+    context.fillStyle = '#1a1a1a'; context.font = '700 58px DengXian, sans-serif'; context.fillText(title.slice(0, 16), 130, 1010);
+    context.fillStyle = '#777'; context.font = '32px DengXian, sans-serif'; context.fillText('来自「瞧的一天」', 130, 1070);
+    try {
+      const qr = await loadCanvasImage('https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=' + encodeURIComponent(url));
+      context.drawImage(qr, 690, 1040, 220, 220);
+    } catch (e) {}
+    context.fillStyle = '#999'; context.font = '26px DengXian, sans-serif'; context.fillText('扫码来看瞧瞧', 130, 1260);
+    $('#shareCardDownload').onclick = () => {
+      try {
+        const link = document.createElement('a');
+        link.download = '瞧的一天-' + title.replace(/[\\/:*?"<>|]/g, '') + '.png';
+        link.href = canvas.toDataURL('image/png'); link.click();
+      } catch (e) { toast('卡片生成失败，请稍后重试'); }
+    };
+  }
+
+  // ========== 删除 ========== 
   async function handleDeleteStory(id) {
     if (!confirm('确认删除这个故事？')) return;
     state.story.items = state.story.items.filter((s) => s.id !== id);
@@ -1550,6 +1803,9 @@ window.addEventListener('unhandledrejection', function(e) {
     } catch (e) {
       toast(e.message || '备份失败，请稍后重试', 4000);
     }
+
+    const commentSubmit = $('#commentSubmit');
+    if (commentSubmit) commentSubmit.onclick = submitComment;
   }
 
   async function importData() {
