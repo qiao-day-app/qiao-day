@@ -2142,12 +2142,6 @@ window.addEventListener('unhandledrejection', function(e) {
       // 异步：后台静默连服务器（不阻塞页面）
       setTimeout(function () { try { syncFromServer(); } catch (e) {} }, 2000);
 
-      // 引导昵称
-      try {
-        if (state && state.visitor && !state.visitor.nickname) {
-          setTimeout(function () { try { showNicknameFirst(); } catch (e) {} }, 1200);
-        }
-      } catch (e) {}
     } catch (e) {
       // 任何初始化错误都直接显示兜底内容，绝不再卡 loading
       console.error('init failed', e);
