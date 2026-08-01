@@ -993,7 +993,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const description = it.description || (type === 'story' ? (isComic ? '瞧瞧漫画' : '瞧瞧美照') : '和瞧瞧一起慢慢发现美好');
       return `<div class="img-viewer-page" data-viewer-idx="${i}">
         <article class="content-detail">
-          <div class="content-detail-image ${isComic ? 'comic' : ''}">
+          <div class="content-detail-image ${isComic ? 'comic' : ''} ${type === 'story' ? 'story-long' : ''}">
             ${it.image ? `<img src="${it.image}" alt="${escape(title)}" draggable="false" loading="eager" decoding="async">` : '<div class="detail-image-empty">🐶</div>'}
           </div>
           <div class="content-detail-body">
