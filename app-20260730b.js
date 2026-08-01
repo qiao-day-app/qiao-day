@@ -180,7 +180,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
   const DEFAULT_DATA = {
     meta: { name: '瞧瞧', createdAt: Date.now(), shareUrl: window.location.origin + '/' },
-    story: { quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
+    story: { avatar: 'assets/qiaoqiao-avatar.jpg', quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
     outfit: { items: [] },
     shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] }
   };
@@ -415,7 +415,6 @@ window.addEventListener('unhandledrejection', function(e) {
   function renderStory() {
     const items = state.story.items || [];
     const hasItems = items.length > 0;
-    const heroImg = items.find((i) => i.image)?.image;
     const quickImg = items[0]?.image;
 
     // 顶部 + 大图
@@ -452,7 +451,8 @@ window.addEventListener('unhandledrejection', function(e) {
           <span>小故事</span>
         </div>
         <div class="story-hero-illust">
-          <img src="assets/qiaoqiao-avatar.jpg" alt="白博美瞧瞧">
+          <img src="${escape(state.story.avatar || 'assets/qiaoqiao-avatar.jpg')}" alt="瞧瞧头像">
+          ${isAdmin ? '<button class="avatar-edit-btn" data-action="edit-story-avatar">更换头像</button>' : ''}
         </div>
       </div>
 
@@ -919,6 +919,7 @@ window.addEventListener('unhandledrejection', function(e) {
     if (action === 'add-outfit') return isAdmin ? showOutfitForm() : showVisitorUpload('outfit');
     if (action === 'order-shop') return isAdmin ? showShopForm() : showVisitorUpload('shop');
     if (action === 'edit-hero') return showHeroForm();
+    if (action === 'edit-story-avatar') return showStoryAvatarForm();
     if (action === 'login-admin') return showAdminLogin();
     if (action === 'exit-admin') { isAdmin = false; toast('已退出管理员'); render(); return; }
     if (action === 'share') return showShare();
@@ -1200,6 +1201,52 @@ window.addEventListener('unhandledrejection', function(e) {
       closeModal();
       toast(editing ? '已更新' : '已上架');
       render();
+    };
+  }
+
+  function showStoryAvatarForm() {
+    const currentAvatar = state.story.avatar || 'assets/qiaoqiao-avatar.jpg';
+    const html = `
+      <div class="form-group">
+        <label class="form-label">小故事首页头像</label>
+        <div class="upload-area" id="storyAvatarUpload">
+          <div class="upload-icon">🐶</div>
+          <div>点击选择新的头像</div>
+          <div class="upload-hint">建议使用正方形图片，上传时会自动压缩</div>
+          <img class="preview" src="${escape(currentAvatar)}" alt="当前头像">
+          <div class="preview-mask">点击替换</div>
+        </div>
+        <input type="file" accept="image/*" id="storyAvatarFile" class="file-hidden">
+      </div>
+    `;
+    const footer = `
+      <button class="btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn-primary" id="storyAvatarSave">保存头像</button>
+    `;
+    showModal({ title: '更换瞧瞧头像', html, footer });
+
+    const uploadArea = $('#storyAvatarUpload');
+    const fileInput = $('#storyAvatarFile');
+    uploadArea.onclick = () => fileInput.click();
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const image = await uploadImage(file);
+      if (!image) return;
+      const preview = uploadArea.querySelector('.preview');
+      if (preview) preview.src = image;
+    };
+
+    $('#storyAvatarSave').onclick = async () => {
+      const file = fileInput.files[0];
+      if (!file) return toast('请先选择一张图片');
+      const image = await uploadImage(file);
+      if (!image) return;
+      state.story.avatar = image;
+      if (!await saveState()) return;
+      closeModal();
+      render();
+      toast('首页头像已更新');
     };
   }
 
@@ -1553,7 +1600,8 @@ window.addEventListener('unhandledrejection', function(e) {
   function updateClock() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    $('#statusTime').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const statusTime = $('#statusTime');
+    if (statusTime) statusTime.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   // ========== 启动（纯同步，先本地渲染再后台同步） ==========

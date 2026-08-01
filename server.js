@@ -32,7 +32,7 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) fs.mkdirSync(path.join(__dirna
 const DEFAULT_DATA = {
   meta: { name: '瞧瞧', createdAt: Date.now(), shareUrl: 'https://1f1484e89899432b898ee1b4f27da876.sh5.agentos-app.net' },
   adminToken: crypto.randomBytes(16).toString('hex'),
-  story: { quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
+  story: { avatar: 'assets/qiaoqiao-avatar.jpg', quick: { name: '瞧瞧小档案', tag: '回归' }, items: [] },
   outfit: { items: [] },
   shop: { tabs: ['灵感上新', '联名周边', '文创产品', '电子瞧瞧'], hero: { title: '', image: '' }, items: [] }
 };
