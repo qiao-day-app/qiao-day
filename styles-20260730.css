@@ -1055,8 +1055,8 @@ ul { list-style: none; }
     flex-direction: row;
     min-height: 310px;
   }
-  .outfit-banner-img-wrap { width: 66%; height: 380px; }
-  .outfit-banner-img { height: 100%; max-height: none; object-fit: cover; }
+  .outfit-banner-img-wrap { width: 66%; height: 380px; background: #f5ead2; }
+  .outfit-banner-img { height: 100%; max-height: none; object-fit: contain; }
   .outfit-banner-text { flex: 1; font-size: 30px; padding: 40px; }
   .outfit-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; padding: 0 0 34px; }
   .outfit-card { border-radius: 18px; box-shadow: 0 8px 24px rgba(90,58,26,0.07); }
