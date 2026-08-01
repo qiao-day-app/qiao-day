@@ -58,6 +58,50 @@ window.addEventListener('unhandledrejection', function(e) {
     return `${d.getMonth() + 1}月${d.getDate()}日`;
   };
 
+  const uploadedImageUrls = new WeakMap();
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0KB';
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + 'KB';
+    return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+  }
+
+  function compressImageFile(file, maxSize = 1920, quality = 0.82) {
+    if (!file || !file.type.startsWith('image/')) return Promise.reject(new Error('请选择图片文件'));
+    if (file.type === 'image/gif') return Promise.resolve(file);
+    if (file.size > 30 * 1024 * 1024) return Promise.reject(new Error('图片不能超过 30MB'));
+    if (file.size <= 900 * 1024) return Promise.resolve(file);
+
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        const scale = Math.min(1, maxSize / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        context.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('图片压缩失败'));
+          if (blob.size >= file.size) return resolve(file);
+          const baseName = (file.name || 'qiaoqiao').replace(/\.[^.]+$/, '');
+          resolve(new File([blob], baseName + '.webp', { type: 'image/webp', lastModified: Date.now() }));
+        }, 'image/webp', quality);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('无法读取这张图片'));
+      };
+      img.src = objectUrl;
+    });
+  }
+
 
 
   // 图片转 base64（压缩到适合 localStorage）
@@ -220,12 +264,23 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // 上传图片到服务器
   async function uploadImage(file) {
-    if (!useServer) return fileToBase64Local(file);
+    if (!file) return '';
+    if (uploadedImageUrls.has(file)) return uploadedImageUrls.get(file);
     try {
-      const form = new FormData(); form.append('image', file);
-      const data = await apiCall('POST', '/api/upload', form, true);
-      return /^https?:\/\//.test(data.url) ? data.url : API_BASE + data.url;
-    } catch(e) { return fileToBase64Local(file); }
+      toast('正在压缩并上传图片…', 6000);
+      const optimized = await compressImageFile(file);
+      if (optimized !== file) toast(`图片已压缩：${formatBytes(file.size)} → ${formatBytes(optimized.size)}`, 3500);
+      if (!useServer) throw new Error('云端尚未连接，请稍后重试');
+      const form = new FormData(); form.append('image', optimized, optimized.name);
+      const data = await apiCall('POST', isAdmin ? '/api/upload' : '/api/upload/public', form, true);
+      const url = /^https?:\/\//.test(data.url) ? data.url : API_BASE + data.url;
+      uploadedImageUrls.set(file, url);
+      toast('图片已保存到云端');
+      return url;
+    } catch(e) {
+      toast(e.message || '图片上传失败，请稍后重试', 4000);
+      return '';
+    }
   }
   function fileToBase64Local(file, maxW) {
     maxW = maxW || 800;
@@ -251,8 +306,9 @@ window.addEventListener('unhandledrejection', function(e) {
 
   // 上传图片（公开接口，访客也可用）
   async function uploadImagePublicLegacy(file) {
+    const optimized = await compressImageFile(file);
     const form = new FormData();
-    form.append('image', file);
+    form.append('image', optimized, optimized.name);
     // 不用 admin token
     const res = await fetch(API_BASE + '/api/upload/public', { method: 'POST', body: form });
     if (!res.ok) throw new Error('上传失败');
@@ -626,6 +682,10 @@ window.addEventListener('unhandledrejection', function(e) {
           <div class="me-list-item" data-action="export-data">
             <span>💾</span> 导出数据
           </div>
+          <div class="me-list-item" data-action="backup-now">
+            <span>☁️</span> 立即云端备份
+            <span class="pill" style="background:#eaf7ed;color:#2e7d32;">每日自动备份已开启</span>
+          </div>
           <div class="me-list-item" data-action="import-data">
             <span>📥</span> 导入数据
           </div>
@@ -711,7 +771,6 @@ window.addEventListener('unhandledrejection', function(e) {
     $$('.shop-tab').forEach((el) => {
       el.onclick = () => {
         state.shop.activeTab = parseInt(el.dataset.shopTab, 10);
-        saveState();
         render();
       };
     });
@@ -731,12 +790,12 @@ window.addEventListener('unhandledrejection', function(e) {
     // 分享链接保存
     const saveShareBtn = $('#saveShareUrl');
     if (saveShareBtn) {
-      saveShareBtn.onclick = () => {
+      saveShareBtn.onclick = async () => {
         const v = $('#shareUrlInput').value.trim();
         if (!v) return toast('请输入分享链接');
         if (!/^https?:\/\//i.test(v)) return toast('链接必须以 http:// 或 https:// 开头');
         state.meta.shareUrl = v;
-        saveState();
+        if (!await saveState()) return;
         toast('分享链接已保存，二维码将固定指向该链接');
         render();
       };
@@ -866,6 +925,7 @@ window.addEventListener('unhandledrejection', function(e) {
     if (action === 'admin-orders') return showAllOrders();
     if (action === 'my-orders') return showMyOrders();
     if (action === 'export-data') return exportData();
+    if (action === 'backup-now') return backupNow();
     if (action === 'import-data') return importData();
     if (action === 'reset-data') return confirmReset();
     if (action === 'about') return showAbout();
@@ -911,6 +971,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const dataUrl = await uploadImage(file);
+      if (!dataUrl) return;
       const existing = uploadArea.querySelector('.preview');
       if (existing) existing.remove();
       const mask = uploadArea.querySelector('.upload-icon');
@@ -942,7 +1003,7 @@ window.addEventListener('unhandledrejection', function(e) {
       } else {
         state.story.items.unshift({ id: uid(), type, image, title, date: Date.now() });
       }
-      if (!saveState()) return;
+      if (!await saveState()) return;
       closeModal();
       toast(editing ? '已更新' : '已发布');
       render();
@@ -987,6 +1048,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const dataUrl = await uploadImage(file);
+      if (!dataUrl) return;
       const existing = uploadArea.querySelector('.preview');
       if (existing) existing.remove();
       const mask = uploadArea.querySelector('.upload-icon');
@@ -1020,7 +1082,7 @@ window.addEventListener('unhandledrejection', function(e) {
       } else {
         state.outfit.items.unshift({ id: uid(), name, description, price, image, orders: [] });
       }
-      if (!saveState()) return;
+      if (!await saveState()) return;
       closeModal();
       toast(editing ? '已更新' : '已添加');
       render();
@@ -1082,6 +1144,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const dataUrl = await uploadImage(file);
+      if (!dataUrl) return;
       const existing = uploadArea.querySelector('.preview');
       if (existing) existing.remove();
       const mask = uploadArea.querySelector('.upload-icon');
@@ -1133,7 +1196,7 @@ window.addEventListener('unhandledrejection', function(e) {
       } else {
         state.shop.items.unshift({ id: uid(), name, image, price, description, category, fileUrl, fileName, fileSize, orders: [] });
       }
-      if (!saveState()) return;
+      if (!await saveState()) return;
       closeModal();
       toast(editing ? '已更新' : '已上架');
       render();
@@ -1165,6 +1228,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const dataUrl = await uploadImage(file);
+      if (!dataUrl) return;
       const existing = heroUpload.querySelector('.preview');
       if (existing) existing.remove();
       const mask = heroUpload.querySelector('.upload-icon');
@@ -1186,7 +1250,7 @@ window.addEventListener('unhandledrejection', function(e) {
       if (file) image = await uploadImage(file);
       if (!image) return toast('请上传图片');
       state.shop.hero = { image };
-      saveState();
+      if (!await saveState()) return;
       closeModal();
       toast('已保存');
       render();
@@ -1243,6 +1307,7 @@ window.addEventListener('unhandledrejection', function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const dataUrl = await uploadImage(file);
+      if (!dataUrl) return;
       const existing = visUpload.querySelector('.preview');
       if (existing) existing.remove();
       const mask = visUpload.querySelector('.upload-icon');
@@ -1430,6 +1495,16 @@ window.addEventListener('unhandledrejection', function(e) {
     } catch (e) { toast('导出失败'); }
   }
 
+  async function backupNow() {
+    try {
+      toast('正在创建云端备份…', 5000);
+      await apiCall('POST', '/api/backups', {});
+      toast('云端备份已创建');
+    } catch (e) {
+      toast(e.message || '备份失败，请稍后重试', 4000);
+    }
+  }
+
   async function importData() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = '.json';
@@ -1549,11 +1624,38 @@ window.addEventListener('unhandledrejection', function(e) {
     } catch (e) {}
   }
 
+  let wakeNoticeTimer = null;
+  function showWakeNotice(message, canRetry = false) {
+    let notice = document.querySelector('#wakeNotice');
+    if (!notice) {
+      notice = document.createElement('button');
+      notice.id = 'wakeNotice';
+      notice.className = 'wake-notice';
+      document.body.appendChild(notice);
+    }
+    notice.textContent = message;
+    notice.classList.add('show');
+    notice.classList.toggle('retry', canRetry);
+    notice.onclick = canRetry ? () => syncFromServer() : null;
+  }
+
+  function hideWakeNotice(delay = 0) {
+    clearTimeout(wakeNoticeTimer);
+    wakeNoticeTimer = setTimeout(() => {
+      const notice = document.querySelector('#wakeNotice');
+      if (notice) notice.classList.remove('show');
+    }, delay);
+  }
+
   async function syncFromServer() {
+    clearTimeout(wakeNoticeTimer);
+    wakeNoticeTimer = setTimeout(() => {
+      showWakeNotice('🐶 瞧瞧正在醒来，请稍等一下…');
+    }, 800);
     try {
-      const online = await checkServer();
-      if (!online) return;
-      const data = await apiCall('GET', '/api/data');
+      const response = await fetchWithTimeout(API_BASE + '/api/data', {}, 75000);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
       // 合并服务器数据
       state = { ...state, ...data,
         story: { ...state.story, ...(data.story||{}) },
@@ -1569,7 +1671,14 @@ window.addEventListener('unhandledrejection', function(e) {
       if (!Array.isArray(state.shop.tabs) || !state.shop.tabs.length) state.shop.tabs = JSON.parse(JSON.stringify(DEFAULT_DATA.shop.tabs));
       useServer = true;
       render();
-    } catch (e) {}
+      clearTimeout(wakeNoticeTimer);
+      showWakeNotice('✓ 云端内容已更新');
+      hideWakeNotice(1600);
+    } catch (e) {
+      useServer = false;
+      clearTimeout(wakeNoticeTimer);
+      showWakeNotice('云端暂时没有响应，点击这里重试', true);
+    }
   }
 
   // 直接执行（script 在 body 末尾，DOM 已就绪）

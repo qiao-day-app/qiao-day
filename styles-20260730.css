@@ -1201,3 +1201,28 @@ ul { list-style: none; }
   transition: background 0.2s;
 }
 .img-viewer-dot.active { background: #fff; }
+
+/* Render 免费实例唤醒状态：不遮挡页面，可点击重试 */
+.wake-notice {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -18px);
+  z-index: 1200;
+  max-width: calc(100vw - 32px);
+  padding: 11px 18px;
+  border: 1px solid #eadcc8;
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.96);
+  color: #5a3a1a;
+  box-shadow: 0 8px 28px rgba(71, 48, 24, 0.16);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+  backdrop-filter: blur(10px);
+}
+.wake-notice.show { opacity: 1; transform: translate(-50%, 0); }
+.wake-notice.retry { pointer-events: auto; cursor: pointer; }
