@@ -452,6 +452,18 @@ window.addEventListener('unhandledrejection', function(e) {
     </div>`;
   }
 
+  function getHotContentKeys() {
+    return new Set([
+      ...(state.story.items || []).map(item => ({ key: interactionId('story', item.id), likes: Number(item.likes || 0) })),
+      ...(state.outfit.items || []).map(item => ({ key: interactionId('outfit', item.id), likes: Number(item.likes || 0) })),
+      ...(state.shop.items || []).map(item => ({ key: interactionId('shop', item.id), likes: Number(item.likes || 0) })),
+    ].filter(entry => entry.likes > 0).sort((a, b) => b.likes - a.likes).slice(0, 3).map(entry => entry.key));
+  }
+
+  function renderHotBadge(type, item) {
+    return getHotContentKeys().has(interactionId(type, item.id)) ? '<span class="hot-badge">🔥 热门</span>' : '';
+  }
+
   function dailyIndex(length, salt) {
     if (!length) return -1;
     const day = new Date().toISOString().slice(0, 10) + salt;
@@ -568,6 +580,7 @@ window.addEventListener('unhandledrejection', function(e) {
         ${items.length === 0 ? '<div class="order-empty" style="grid-column:1/-1;">还没有故事，去上传第一张瞧瞧吧 🐾</div>' : ''}
         ${items.map((it) => `
           <div class="story-card" data-story-id="${it.id}">
+            ${renderHotBadge('story', it)}
             ${isAdmin ? `<button class="delete-btn" data-del-story="${it.id}">×</button>` : ''}
             <div class="story-card-img">
               ${it.image ? `<img src="${it.image}" alt="" loading="lazy" decoding="async">` : '🐶'}
@@ -608,6 +621,7 @@ window.addEventListener('unhandledrejection', function(e) {
         ${items.length === 0 ? '<div class="order-empty" style="grid-column:1/-1;">还没有穿搭，管理员快去添加吧 🐕</div>' : ''}
         ${items.map((it) => `
           <div class="outfit-card" data-outfit-id="${it.id}">
+            ${renderHotBadge('outfit', it)}
             ${isAdmin ? `
               <button class="edit-btn" data-edit-outfit="${it.id}">✎</button>
               <button class="delete-btn" data-del-outfit="${it.id}">×</button>
@@ -619,7 +633,7 @@ window.addEventListener('unhandledrejection', function(e) {
               <div class="outfit-card-name">${escape(it.name)}</div>
               <div class="outfit-card-desc">${escape(it.description || '一款超酷的造型~')}</div>
               <div class="outfit-card-bottom">
-                <div class="outfit-card-price">${it.price ? '¥' + it.price : '绝赞'}</div>
+                <div class="outfit-card-price">${it.price ? '¥' + it.price : ''}</div>
                 <button class="outfit-card-btn" data-order-outfit="${it.id}">点这款</button>
               </div>
               ${renderSocialActions('outfit', it)}
@@ -672,6 +686,7 @@ window.addEventListener('unhandledrejection', function(e) {
         ${items.length === 0 ? '<div class="order-empty" style="grid-column:1/-1;">还没有商品上架</div>' : ''}
         ${items.map((it) => `
           <div class="shop-item" data-shop-id="${it.id}">
+            ${renderHotBadge('shop', it)}
             ${isAdmin ? `
               <button class="edit-btn" data-edit-shop="${it.id}">✎</button>
               <button class="delete-btn" data-del-shop="${it.id}">×</button>

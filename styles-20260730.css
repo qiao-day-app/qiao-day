@@ -1334,6 +1334,14 @@ ul { list-style: none; }
 .social-btn.active { color: #c93838; background: #fff0f0; border-color: #ffd0d0; }
 .shop-item .social-actions { margin-top: 6px; }
 .shop-item .social-btn { height: 24px; min-width: 26px; padding: 0 6px; background: rgba(255,255,255,.92); }
+.hot-badge {
+  position: absolute; top: 8px; left: 8px; z-index: 4;
+  padding: 5px 9px; border-radius: 999px;
+  background: linear-gradient(135deg, #ff6b35, #d93825); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  box-shadow: 0 4px 12px rgba(201,56,56,.25);
+}
+.outfit-card-price:empty { display: none; }
 
 /* 今日推荐与热门内容 */
 .today-section, .popular-section { padding-bottom: 8px; }
